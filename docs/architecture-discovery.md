@@ -122,6 +122,6 @@ None of these is required by Pi for Phase 1 (**Confirmed** for Postgres/queues; 
 
 4. **GO / NO-GO:** ≥6/9 usable, ≥6/9 agentic, zero invented Evidence. Caps: 10 minutes or 15 tool calls → `error`. Crash → `error`, re-inject. GO does not mean “integrate Coralogix.”
 
-5. **Only if Phase 1 succeeds:** evaluation (Phase 2), then Phase 3 Security Tool Layer (`phase3update.md`), then Incident state, then any remediation behind policy. MCP Gateway is not the next integration path.
+5. **Only if Phase 1 succeeds:** evaluation (Phase 2), then Phase 3 Security Tool Layer (`pre-brainstorm.md`), then Incident state, then any remediation behind policy. MCP Gateway is not the next integration path.
 
 **Do not write implementation code until this document is accepted.** First engineering step after acceptance is a smoke: RPC prompt, local MCP `direct` tool, builtin tools off, one fake query, structured result parsed.

@@ -5,4 +5,4 @@
 
 ## Notes
 - Phase 1 isolated POC: thin GO. Details in `docs/phase-1-result.md`.
-- Pi 1.0.4 has native MCP; MCP Gateway is deferred. Phase 3 target is Security Tool Layer (`phase3update.md`).
+- Pi 1.0.4 has native MCP; MCP Gateway is deferred. Phase 3 target is Security Tool Layer (`pre-brainstorm.md`).

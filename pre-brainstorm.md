@@ -17,11 +17,15 @@ Agentic SOAR
         ↓
 Pi
         ↓
-Internal MCP Gateway
+Security Tool Layer
         ↓
-Security Tools
+GCP Secret Manager
+        ↓
+Security APIs
 (CrowdStrike / Wiz / Coralogix / etc.)
 ```
+
+MCP Gateway is deferred. Pi 1.0.4+ has native MCP; Phase 3 still keeps vendor credentials out of Pi via a thin Security Tool Layer.
 
 The goal is to determine whether Pi can serve as the AI investigation engine behind an in-house SOC automation platform.
 
@@ -119,19 +123,23 @@ Determine Pi's actual MCP capabilities, including:
 - tool invocation behavior
 - whether Pi can dynamically use multiple tools during an investigation
 
-The long-term architecture will use an internal MCP gateway:
+Pi **1.0.4+** has native MCP (`.pi/mcp.json`, stdio/HTTP, `exposure: direct` or tools stay hidden in `codemode`). Phase 1 used that for local telemetry.
+
+Long-term, prefer:
 
 ```text
-Pi
+Pi (native MCP / tool calls)
  ↓
-Internal MCP Gateway
+Security Tool Layer
+ ↓
+GCP Secret Manager
  ↓
 CrowdStrike / Wiz / Coralogix / other security systems
 ```
 
-However, **MCP connectivity itself is not the primary Phase 1 success criterion**.
+MCP Gateway is **deferred**. From the model, MCP and Pi `registerTool` are both tool calls; the difference is where the handler runs. Prefer Pi MCP → Security Tool Layer (separate process, secrets stay there) over in-process Pi tools that hold vendor credentials.
 
-The important question is whether Pi can use security telemetry/tools effectively during investigation.
+**MCP connectivity itself is not the primary Phase 1 success criterion.** The question is whether Pi can use security telemetry/tools effectively during investigation.
 
 ---
 
@@ -362,27 +370,52 @@ Evaluate:
 
 ---
 
-### Phase 3 — SOAR Control Plane
+### Phase 3 — Real integrations + Security Tool Layer
 
-Introduce durable SOAR-level state and operational controls such as:
+Phase 1 and Phase 2 stay as written. Phase 3 is **not** a control plane or a second SOAR.
 
-- incidents
-- investigation lifecycle
-- evidence
-- audit trail
-- escalation
-- retries
-- concurrency
-- human approval
-- investigation history
+```text
+Pi
+ ↓
+Security Tool Layer
+ ↓
+GCP Secret Manager
+ ↓
+Real Security APIs
+```
 
-At this stage, evaluate whether PostgreSQL or another durable datastore is appropriate.
+The Security Tool Layer is a thin security/integration boundary. Start **read-only**. Pi should preferably never receive raw API credentials.
 
-Important distinction:
+Pi is planned to run on a VM (not deployed yet). GCP Secret Manager is already available. Most integrations use long-lived API credentials.
 
-> Pi's internal agent/session state and the SOAR's durable incident state are separate concerns.
+Classify each responsibility as MUST HAVE NOW / FUTURE / NOT PART OF THIS LAYER:
 
-Do not assume PostgreSQL must be Pi's native session backend.
+- tool execution
+- API authentication
+- GCP Secret Manager access
+- request validation
+- response validation
+- secret redaction
+- authorization
+- audit logging
+- retries/timeouts
+- rate limiting
+- idempotency
+- error handling
+
+Prefer Pi MCP → Security Tool Layer over in-process tools with vendor credentials. Evaluate VM identity for Secret Manager; do not assume it is decided. Redaction is defense-in-depth, not the secret store.
+
+Prefer narrow tools (`crowdstrike_get_device`, `coralogix_search`) over `arbitrary_http_request()`.
+
+Do not build:
+
+```text
+Pi → Security Platform → SOAR → Workflow Engine → Policy Engine → Integration Engine → API Gateway
+```
+
+Every extra component must justify itself.
+
+Durable incident state (lifecycle, escalation, human approval, investigation history, whether PostgreSQL belongs) is **not** Phase 3. That stays with later production/control-plane work. Pi session files and SOAR incident state remain separate; PostgreSQL is not Pi’s session backend.
 
 ---
 

@@ -8,7 +8,7 @@ Committed diagrams for GitLab / GitHub / Cursor preview. Local HTML: open [`visu
 - [POC score](#poc-score)
 - [Phase 3 target](#phase-3-target)
 
-Source numbers: [`phase-1-scoring.md`](phase-1-scoring.md), [`phase-1-result.md`](phase-1-result.md). Architecture intent: [`phase3update.md`](../phase3update.md).
+Source numbers: [`phase-1-scoring.md`](phase-1-scoring.md), [`phase-1-result.md`](phase-1-result.md). Architecture intent: [`pre-brainstorm.md`](../pre-brainstorm.md).
 
 ## Roadmap
 

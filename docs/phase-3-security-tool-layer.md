@@ -4,7 +4,7 @@
 
 Phase 1 stays isolated (Test World MCP). Phase 2 (eval) is unchanged and not designed here.
 
-Language: [[GLOSSARY]]. Phase 1: [[phase-1-design]], [[phase-1-result]]. Brief: `phase3update.md`.
+Language: [[GLOSSARY]]. Phase 1: [[phase-1-design]], [[phase-1-result]]. Brief: `pre-brainstorm.md` (Phase 3).
 
 No fundamental flaw in “use a Security Tool Layer.” Pi 1.0.4 already has native MCP; that makes a **separate MCP process** the smallest way to keep vendor keys out of Pi. MCP Gateway stays deferred.
 

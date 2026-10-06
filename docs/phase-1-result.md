@@ -53,5 +53,5 @@ Production Coralogix / CrowdStrike / Wiz, MCP Gateway, Postgres, n8n, remediatio
 - ADR (RPC host): `docs/adr/0004-phase-1-drive-pi-via-rpc.md`
 - Glossary: `GLOSSARY.md`
 - Run: `README.md`
-- Next-phase brief: `phase3update.md` (Pi 1.0.4 native MCP; MCP Gateway still deferred)
+- Next-phase brief: `pre-brainstorm.md` Phase 3 (Pi 1.0.4 native MCP; MCP Gateway still deferred)
 - Visuals: `docs/visuals.md` (Mermaid, pushable) and `docs/visuals/index.html`
