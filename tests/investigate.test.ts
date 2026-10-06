@@ -2,8 +2,9 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { INVESTIGATION_CAP_SUMMARY } from "../src/constants.ts";
 import { errorResult, type InvestigationResult } from "../src/schema.ts";
-import { runInvestigation } from "../src/investigate.ts";
+import { investigationResultFromRun, runInvestigation } from "../src/investigate.ts";
 import type { PiRunOk } from "../src/pi-host.ts";
 import { PiHostError } from "../src/pi-host.ts";
 import { resultPath } from "../src/write-result.ts";
@@ -77,5 +78,16 @@ describe("investigate", () => {
     );
     expect(r).toEqual(errorResult("m", "child exited"));
     expect(readWritten(outDir, "err")).toEqual(r);
+  });
+
+  test("investigationResultFromRun maps cap abort without parsing text", () => {
+    const r = investigationResultFromRun({
+      text: '{"alert_disposition":"true_positive"}',
+      modelId: "frozen-model",
+      sessionFile: null,
+      toolCallCount: 15,
+      aborted: true,
+    });
+    expect(r).toEqual(errorResult("frozen-model", INVESTIGATION_CAP_SUMMARY));
   });
 });

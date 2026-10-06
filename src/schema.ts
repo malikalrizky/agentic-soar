@@ -25,6 +25,20 @@ export type TestAlert = {
   hash?: string;
 };
 
+const testAlertSchema = z.object({
+  type: z.string(),
+  timestamp: z.string(),
+  user: z.string().optional(),
+  host: z.string().optional(),
+  source_ip: z.string().optional(),
+  process: z.string().optional(),
+  hash: z.string().optional(),
+});
+
+export function parseTestAlert(raw: unknown): TestAlert {
+  return testAlertSchema.parse(raw);
+}
+
 export type EvidenceItem = {
   claim: string;
   source: "alert" | "telemetry";

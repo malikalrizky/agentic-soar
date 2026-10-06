@@ -7,7 +7,7 @@ import {
   INVESTIGATION_WALL_MS,
 } from "./constants.ts";
 import { RpcClient } from "@earendil-works/pi-coding-agent";
-import { ensureGerbangAdapterEnv, gerbangPiModelsJson } from "./gerbang.ts";
+import { gerbangPiArgs, gerbangPiChild } from "./gerbang.ts";
 
 export type PiRunOk = {
   text: string;
@@ -95,18 +95,7 @@ function lastAssistantTextFromSession(sessionFile: string): string {
 }
 
 export function piSpawnArgs(opts: { sessionDir: string; systemPromptPath: string }): string[] {
-  return [
-    "--mode",
-    "rpc",
-    "--no-builtin-tools",
-    "-e",
-    gerbangDkExtensionPath(),
-    "-a",
-    "--session-dir",
-    opts.sessionDir,
-    "--system-prompt",
-    opts.systemPromptPath,
-  ];
+  return gerbangPiArgs({ ...opts, extensionPath: gerbangDkExtensionPath() });
 }
 
 export async function runPiInvestigation(
@@ -221,20 +210,19 @@ async function defaultWait(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 function createPiClient(opts: { sessionDir: string; systemPromptPath: string }): RpcClientLike {
-  const adapter = ensureGerbangAdapterEnv();
+  const child = gerbangPiChild({
+    cliPath: resolvePiCliJs(),
+    extensionPath: gerbangDkExtensionPath(),
+    sessionDir: opts.sessionDir,
+    systemPromptPath: opts.systemPromptPath,
+  });
   const model = process.env.PI_MODEL?.trim() || FROZEN_PI_MODEL;
   const inner = new RpcClient({
-    cliPath: resolvePiCliJs(),
+    cliPath: child.cliPath,
     provider: "dk",
     model,
-    args: piSpawnArgs(opts),
-    env: {
-      GERBANG_ADAPTER_BASE_URL: adapter.GERBANG_ADAPTER_BASE_URL,
-      GERBANG_ADAPTER_API_KEY: adapter.GERBANG_ADAPTER_API_KEY,
-      GERBANG_PI_MODELS_JSON: gerbangPiModelsJson(model),
-      PI_OFFLINE: "1",
-      PI_TELEMETRY: "0",
-    },
+    args: child.args,
+    env: child.env,
   });
   return {
     start: () => inner.start(),

@@ -1,4 +1,4 @@
-import { errorResult, type InvestigationResult, type TestAlert } from "./schema.ts";
+import { errorResult, parseTestAlert, type InvestigationResult, type TestAlert } from "./schema.ts";
 import { runInvestigation } from "./investigate.ts";
 
 export function createInvestigateHandler(opts: {
@@ -21,8 +21,10 @@ export function createInvestigateHandler(opts: {
       } catch {
         return Response.json({ error: "invalid_json" }, { status: 400 });
       }
-      const alert = (parsed as { alert?: TestAlert } | null)?.alert;
-      if (!alert || typeof alert.type !== "string" || typeof alert.timestamp !== "string") {
+      let alert: TestAlert;
+      try {
+        alert = parseTestAlert((parsed as { alert?: unknown } | null)?.alert);
+      } catch {
         return Response.json({ error: "invalid_alert" }, { status: 400 });
       }
       const result = await opts.run(alert);

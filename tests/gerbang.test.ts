@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { FROZEN_PI_MODEL } from "../src/constants.ts";
 import {
   ensureGerbangAdapterEnv,
+  gerbangPiChild,
   gerbangPiModelsJson,
   parseGerbangProxyOutput,
 } from "../src/gerbang.ts";
@@ -57,5 +58,29 @@ describe("gerbang adapter", () => {
       GERBANG_ADAPTER_BASE_URL: "http://127.0.0.1:9/v1",
       GERBANG_ADAPTER_API_KEY: "from-proxy",
     });
+  });
+
+  test("gerbangPiChild env is Gerbang and Pi keys only", () => {
+    const child = gerbangPiChild({
+      cliPath: "/opt/pi/cli.js",
+      extensionPath: "/ext.mjs",
+      sessionDir: "/s",
+      systemPromptPath: "/p",
+      processEnv: {
+        GERBANG_ADAPTER_BASE_URL: "http://127.0.0.1:1/v1",
+        GERBANG_ADAPTER_API_KEY: "k",
+        OPENAI_API_KEY: "vendor-must-not-leak",
+      },
+    });
+    expect(child.cliPath).toBe("/opt/pi/cli.js");
+    expect(child.args).toContain("--no-builtin-tools");
+    expect(Object.keys(child.env).sort()).toEqual([
+      "GERBANG_ADAPTER_API_KEY",
+      "GERBANG_ADAPTER_BASE_URL",
+      "GERBANG_PI_MODELS_JSON",
+      "PI_OFFLINE",
+      "PI_TELEMETRY",
+    ]);
+    expect(child.env.OPENAI_API_KEY).toBeUndefined();
   });
 });

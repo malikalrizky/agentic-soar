@@ -24,6 +24,55 @@ export function parseGerbangProxyOutput(text: string): GerbangAdapterEnv {
   };
 }
 
+export type GerbangPiChild = {
+  cliPath: string;
+  args: string[];
+  env: Record<string, string>;
+};
+
+export function gerbangPiArgs(opts: {
+  extensionPath: string;
+  sessionDir: string;
+  systemPromptPath: string;
+}): string[] {
+  return [
+    "--mode",
+    "rpc",
+    "--no-builtin-tools",
+    "-e",
+    opts.extensionPath,
+    "-a",
+    "--session-dir",
+    opts.sessionDir,
+    "--system-prompt",
+    opts.systemPromptPath,
+  ];
+}
+
+export function gerbangPiChild(opts: {
+  cliPath: string;
+  extensionPath: string;
+  sessionDir: string;
+  systemPromptPath: string;
+  processEnv?: NodeJS.ProcessEnv;
+  runProxy?: () => ProxyRun;
+}): GerbangPiChild {
+  const processEnv = opts.processEnv ?? process.env;
+  const adapter = ensureGerbangAdapterEnv(processEnv, opts.runProxy);
+  const model = processEnv.PI_MODEL?.trim() || FROZEN_PI_MODEL;
+  return {
+    cliPath: opts.cliPath,
+    args: gerbangPiArgs(opts),
+    env: {
+      GERBANG_ADAPTER_BASE_URL: adapter.GERBANG_ADAPTER_BASE_URL,
+      GERBANG_ADAPTER_API_KEY: adapter.GERBANG_ADAPTER_API_KEY,
+      GERBANG_PI_MODELS_JSON: gerbangPiModelsJson(model),
+      PI_OFFLINE: "1",
+      PI_TELEMETRY: "0",
+    },
+  };
+}
+
 export function gerbangPiModelsJson(modelId = FROZEN_PI_MODEL): string {
   return JSON.stringify([
     {

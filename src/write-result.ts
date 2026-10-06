@@ -1,6 +1,6 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import type { InvestigationResult, TestAlert } from "./schema.ts";
+import { parseTestAlert, type InvestigationResult, type TestAlert } from "./schema.ts";
 
 export function resultPath(alertFileOrId: string, outDir: string): string {
   const base = basename(alertFileOrId).replace(/\.json$/i, "");
@@ -8,11 +8,7 @@ export function resultPath(alertFileOrId: string, outDir: string): string {
 }
 
 export function loadAlert(path: string): TestAlert {
-  const raw = JSON.parse(readFileSync(path, "utf8")) as TestAlert;
-  if (typeof raw.type !== "string" || typeof raw.timestamp !== "string") {
-    throw new Error("alert requires type and timestamp");
-  }
-  return raw;
+  return parseTestAlert(JSON.parse(readFileSync(path, "utf8")));
 }
 
 export function writeResultFile(

@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { INVESTIGATION_CAP_SUMMARY } from "./constants.ts";
 import {
   errorResult,
   extractJsonObject,
@@ -22,6 +23,20 @@ export type InvestigationDeps = {
   outDir?: string;
 };
 
+export function investigationResultFromRun(run: PiRunOk | PiHostError): InvestigationResult {
+  if (run instanceof PiHostError) {
+    return errorResult(run.modelId, run.message);
+  }
+  if (run.aborted) {
+    return errorResult(run.modelId, INVESTIGATION_CAP_SUMMARY);
+  }
+  try {
+    return parseInvestigationResult(extractJsonObject(run.text), run.modelId);
+  } catch {
+    return errorResult(run.modelId, "invalid investigation json");
+  }
+}
+
 export async function runInvestigation(
   alert: TestAlert,
   persistKey: string,
@@ -35,18 +50,10 @@ export async function runInvestigation(
   try {
     const run = await runPi(prompt);
     sessionFile = run.sessionFile;
-    if (run.aborted) {
-      result = errorResult(run.modelId, "cap: 10m or 15 tool calls");
-    } else {
-      try {
-        result = parseInvestigationResult(extractJsonObject(run.text), run.modelId);
-      } catch {
-        result = errorResult(run.modelId, "invalid investigation json");
-      }
-    }
+    result = investigationResultFromRun(run);
   } catch (err) {
     if (err instanceof PiHostError) {
-      result = errorResult(err.modelId, err.message);
+      result = investigationResultFromRun(err);
     } else {
       throw err;
     }

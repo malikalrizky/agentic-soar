@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { errorResult, extractJsonObject, parseInvestigationResult } from "../src/schema.ts";
+import { errorResult, extractJsonObject, parseInvestigationResult, parseTestAlert } from "../src/schema.ts";
 
 describe("schema", () => {
   test("parseInvestigationResult accepts a full valid object and sets model_id from the argument", () => {
@@ -66,5 +66,14 @@ describe("schema", () => {
     expect(r.recommended_posture).toBe("needs_human");
     expect(r.confidence).toBe("low");
     expect(r.model_id).toBe("m");
+  });
+
+  test("parseTestAlert requires type and timestamp", () => {
+    expect(parseTestAlert({ type: "suspicious_login", timestamp: "2026-01-01T00:00:00Z", user: "bob" })).toEqual({
+      type: "suspicious_login",
+      timestamp: "2026-01-01T00:00:00Z",
+      user: "bob",
+    });
+    expect(() => parseTestAlert({ type: "suspicious_login" })).toThrow();
   });
 });

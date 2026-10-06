@@ -47,3 +47,7 @@ _Avoid_: fixture pack (per Alert), playbook, golden trace
 **Confidence**:
 An analyst-facing estimate on the Investigation Result: `low`, `medium`, or `high`. Not a calibrated probability until a later evaluation phase.
 _Avoid_: score, probability, certainty
+
+**Scoring**:
+A GO check of an Investigation Result against the Test World: whether Evidence cites an empty or unknown Telemetry Dataset, and whether Tools used were known.
+_Avoid_: grade, eval, verdict

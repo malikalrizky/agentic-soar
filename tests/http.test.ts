@@ -36,6 +36,15 @@ describe("http", () => {
     expect(status).toBe(400);
   });
 
+  test("POST /investigate 400 on invalid alert", async () => {
+    const handler = createInvestigateHandler({
+      run: async () => errorResult("m", "n"),
+    });
+    const { status, body } = await invoke(handler, "POST", "/investigate", { alert: { type: 1 } });
+    expect(status).toBe(400);
+    expect(body.error).toBe("invalid_alert");
+  });
+
   test("overlapping POST /investigate starts run once", async () => {
     let entered = 0;
     let release!: () => void;
