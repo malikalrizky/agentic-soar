@@ -1,0 +1,178 @@
+openapi: 3.1.0
+info:
+  title: Agentic SOAR HTTP API
+  version: 0.1.0
+  description: >
+    Phase 1 POC trigger. Bun.serve, one investigation at a time.
+    Persist key is `{alert.type}-{alert.timestamp}`.
+servers:
+  - url: http://127.0.0.1:8787
+    description: Local default (override with PORT)
+paths:
+  /investigate:
+    post:
+      operationId: investigate
+      summary: Run one Test Alert investigation
+      description: >
+        Starts Pi RPC investigation against the local Test World MCP.
+        Concurrent requests while busy return 409 without starting a second run.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvestigateRequest"
+            example:
+              alert:
+                type: suspicious_login
+                timestamp: "2026-01-01T09:00:00Z"
+                user: bob
+      responses:
+        "200":
+          description: Investigation finished
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvestigateSuccess"
+        "400":
+          description: Invalid JSON body or alert failed Zod parse
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+              examples:
+                invalid_json:
+                  value: { error: invalid_json }
+                invalid_alert:
+                  value: { error: invalid_alert }
+        "404":
+          description: Wrong method or path
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+              example:
+                error: not_found
+        "409":
+          description: Another investigation is already running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+              example:
+                error: investigation_in_progress
+        "500":
+          description: Unhandled failure; body still carries an error InvestigationResult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvestigateSuccess"
+components:
+  schemas:
+    InvestigateRequest:
+      type: object
+      required: [alert]
+      properties:
+        alert:
+          $ref: "#/components/schemas/TestAlert"
+    InvestigateSuccess:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/InvestigationResult"
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum:
+            - not_found
+            - invalid_json
+            - invalid_alert
+            - investigation_in_progress
+    TestAlert:
+      type: object
+      required: [type, timestamp]
+      properties:
+        type:
+          type: string
+        timestamp:
+          type: string
+          description: Opaque string used in the persist key; ISO-8601 recommended
+        user:
+          type: string
+        host:
+          type: string
+        source_ip:
+          type: string
+        process:
+          type: string
+        hash:
+          type: string
+    EvidenceItem:
+      type: object
+      required: [claim, source]
+      properties:
+        claim:
+          type: string
+        source:
+          type: string
+          enum: [alert, telemetry]
+        dataset:
+          type: string
+    InvestigationResult:
+      type: object
+      required:
+        - alert_disposition
+        - recommended_posture
+        - confidence
+        - model_id
+        - summary
+        - supporting_evidence
+        - assumptions
+        - investigation_steps
+        - entities
+        - recommended_next_step
+      properties:
+        alert_disposition:
+          type: string
+          enum:
+            - true_positive
+            - false_positive
+            - benign_true_positive
+            - insufficient_evidence
+            - error
+        recommended_posture:
+          type: string
+          enum:
+            - no_action
+            - monitor
+            - needs_human
+            - recommend_containment
+        confidence:
+          type: string
+          enum: [low, medium, high]
+        model_id:
+          type: string
+        summary:
+          type: string
+        supporting_evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidenceItem"
+        assumptions:
+          type: array
+          items:
+            type: string
+        investigation_steps:
+          type: array
+          items:
+            type: string
+        entities:
+          type: array
+          items:
+            type: string
+        recommended_next_step:
+          type: string

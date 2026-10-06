@@ -9,3 +9,6 @@ var/pi-sessions/
 
 
 .worktrees/
+
+# Local agent tracker secrets (site / project key)
+docs/agents/issue-tracker.local.md

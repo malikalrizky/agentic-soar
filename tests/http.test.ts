@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { errorResult } from "../src/schema.ts";
-import { createInvestigateHandler } from "../src/http.ts";
+import {
+  createHttpHandler,
+  createInvestigateHandler,
+  isDocsClientAllowed,
+  parseDocsAccess,
+} from "../src/http.ts";
 import { loadAlert, resultPath, writeResultFile } from "../src/write-result.ts";
 
 async function invoke(
@@ -27,6 +32,28 @@ async function invoke(
   return { status: res.status, body: parsed };
 }
 
+async function invokeRaw(
+  handler: (req: Request, clientAddress?: string | null) => Promise<Response>,
+  method: string,
+  path: string,
+  clientAddress: string | null = "127.0.0.1",
+): Promise<{ status: number; contentType: string; text: string; body?: Record<string, unknown> }> {
+  const res = await handler(new Request(`http://127.0.0.1${path}`, { method }), clientAddress);
+  const text = await res.text();
+  let body: Record<string, unknown> | undefined;
+  try {
+    body = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    body = undefined;
+  }
+  return {
+    status: res.status,
+    contentType: res.headers.get("content-type") ?? "",
+    text,
+    body,
+  };
+}
+
 describe("http", () => {
   test("POST /investigate 400 on empty body", async () => {
     const handler = createInvestigateHandler({
@@ -43,6 +70,50 @@ describe("http", () => {
     const { status, body } = await invoke(handler, "POST", "/investigate", { alert: { type: 1 } });
     expect(status).toBe(400);
     expect(body.error).toBe("invalid_alert");
+  });
+
+  test("GET /docs and /openapi.yaml serve browser docs for internal clients", async () => {
+    const handler = createHttpHandler({
+      run: async () => errorResult("m", "n"),
+      docsAccess: "private",
+    });
+    const docs = await invokeRaw(handler, "GET", "/docs", "10.0.0.5");
+    expect(docs.status).toBe(200);
+    expect(docs.contentType).toContain("text/html");
+    expect(docs.text).toContain("openapi.yaml");
+    const spec = await invokeRaw(handler, "GET", "/openapi.yaml", "127.0.0.1");
+    expect(spec.status).toBe(200);
+    expect(spec.contentType).toContain("yaml");
+    expect(spec.text).toContain("openapi:");
+  });
+
+  test("GET /docs 404 for public clients", async () => {
+    const handler = createHttpHandler({
+      run: async () => errorResult("m", "n"),
+      docsAccess: "private",
+    });
+    const docs = await invokeRaw(handler, "GET", "/docs", "8.8.8.8");
+    expect(docs.status).toBe(404);
+    expect(docs.body?.error).toBe("not_found");
+  });
+
+  test("GET /docs 404 when DOCS_ACCESS=off", async () => {
+    const handler = createHttpHandler({
+      run: async () => errorResult("m", "n"),
+      docsAccess: "off",
+    });
+    const docs = await invokeRaw(handler, "GET", "/docs", "127.0.0.1");
+    expect(docs.status).toBe(404);
+  });
+
+  test("isDocsClientAllowed and parseDocsAccess", () => {
+    expect(parseDocsAccess(undefined)).toBe("private");
+    expect(parseDocsAccess("off")).toBe("off");
+    expect(isDocsClientAllowed("127.0.0.1", "loopback")).toBe(true);
+    expect(isDocsClientAllowed("10.1.2.3", "loopback")).toBe(false);
+    expect(isDocsClientAllowed("10.1.2.3", "private")).toBe(true);
+    expect(isDocsClientAllowed("8.8.8.8", "private")).toBe(false);
+    expect(isDocsClientAllowed("127.0.0.1", "off")).toBe(false);
   });
 
   test("overlapping POST /investigate starts run once", async () => {

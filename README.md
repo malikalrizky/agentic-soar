@@ -41,14 +41,35 @@ bun src/cli.ts testdata/alerts/02.json
 
 Results land in `var/results/` (plus a `.session` sidecar). Score with [`docs/phase-1-scoring.md`](docs/phase-1-scoring.md).
 
-HTTP trigger (default port 8787, override with `PORT`):
+### HTTP API
+
+Raw `Bun.serve`. Default port `8787` (`PORT` to override). Machine-readable contract: [`docs/openapi.yaml`](docs/openapi.yaml).
+
+`/docs` and `/openapi.yaml` are internal-only (loopback + private IPs). Public clients get `404`. Set `DOCS_ACCESS=off` to disable, or `loopback` for localhost only. Behind a public reverse proxy the peer IP is usually the proxy — also filter paths at the gateway.
 
 ```bash
 bun src/http.ts
 # or: bun run serve
+# browser docs (from this machine / private network): http://127.0.0.1:8787/docs
+open http://127.0.0.1:8787/docs
+```
+
+`POST /investigate` — body `{ "alert": TestAlert }`. One investigation at a time; a second overlapping request gets `409`.
+
+| Status | Body |
+|---|---|
+| 200 | `{ "result": InvestigationResult }` |
+| 400 | `{ "error": "invalid_json" }` or `{ "error": "invalid_alert" }` |
+| 404 | `{ "error": "not_found" }` (wrong method/path) |
+| 409 | `{ "error": "investigation_in_progress" }` |
+| 500 | `{ "result": InvestigationResult }` with `alert_disposition: "error"` |
+
+`TestAlert` required fields: `type`, `timestamp`. Optional: `user`, `host`, `source_ip`, `process`, `hash`.
+
+```bash
 curl -s -X POST http://127.0.0.1:8787/investigate \
   -H 'content-type: application/json' \
-  -d '{"alert":{...}}'
+  -d '{"alert":{"type":"suspicious_login","timestamp":"2026-01-01T09:00:00Z","user":"bob"}}'
 ```
 
 ### Optional env
@@ -60,10 +81,12 @@ curl -s -X POST http://127.0.0.1:8787/investigate \
 | `GERBANG_ADAPTER_BASE_URL` / `GERBANG_ADAPTER_API_KEY` | Skip `gerbang proxy` when already set |
 | `OPENAI_BASE_URL` / `OPENAI_API_KEY` | Same as adapter env (accepted aliases) |
 | `PORT` | HTTP listen port (default 8787) |
+| `DOCS_ACCESS` | `private` (default), `loopback`, or `off` — who may load `/docs` and `/openapi.yaml` |
 | `WORLD_PATH` | Test World JSON for the telemetry MCP (default `testdata/world.json`) |
 
 ## Docs
 
+- HTTP OpenAPI: [`docs/openapi.yaml`](docs/openapi.yaml)
 - Phase 1 result: [`docs/phase-1-result.md`](docs/phase-1-result.md)
 - Scoring: [`docs/phase-1-scoring.md`](docs/phase-1-scoring.md)
 - Glossary: [`GLOSSARY.md`](GLOSSARY.md)

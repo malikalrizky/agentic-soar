@@ -8,6 +8,20 @@
 - Phase 1 isolated POC: thin GO. Details in `docs/phase-1-result.md`.
 - Pi 1.0.4 has native MCP; MCP Gateway is deferred. Next numbered phase is the Security Tool Layer (`docs/phase-2-security-tool-layer.md`). Agent evaluation is deferred.
 
+## Agent skills
+
+### Issue tracker
+
+Jira via acli (site/project in local override, not committed). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default roles: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
+
 <!-- antislop:start -->
 ## antislop
 For UI, copy, people, mobile layout, or code comments work, read `~/.cursor/skills/antislop/SKILL.md` (core) and then the skill for the task:
