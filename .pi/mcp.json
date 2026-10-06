@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "telemetry": {
-      "command": "npx",
-      "args": ["tsx", "src/mcp-server.ts"],
+      "command": "bun",
+      "args": ["src/mcp-server.ts"],
       "exposure": "direct"
     }
   }
