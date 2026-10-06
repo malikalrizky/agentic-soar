@@ -78,13 +78,13 @@ Data flow:
 
 ## Future vision (high level only)
 
-- **Phase 2**: Evaluation program (accuracy, hallucinations, cost, analyst agreement).
-- **Phase 3**: Security Tool Layer (stdio MCP, Secret Manager, Coralogix read). Incident/control plane stays later. Pi session state is not Incident state.
-- **Phase 4**: Controlled response: reasoning ≠ authorization ≠ action.
-- **Phase 5**: Scale (workers, queues, HA) only when required.
-- **Phase 6**: Knowledge retrieval; multi-agent/ADK only if single-agent Pi fails.
+- **Phase 2**: Security Tool Layer (stdio MCP, Secret Manager, Coralogix read). Incident/control plane stays later. Pi session state is not Incident state.
+- **Deferred**: evaluation (accuracy, hallucinations, cost, analyst agreement) after real vendor queries exist. Not a numbered gate.
+- **Phase 3**: Controlled response: reasoning ≠ authorization ≠ action.
+- **Phase 4**: Scale (workers, queues, HA) only when required.
+- **Phase 5**: Knowledge retrieval; multi-agent/ADK only if single-agent Pi fails.
 
-Production path after GO was originally: SIEM → integration → Pi → **MCP Gateway** → vendors. **Superseded for Phase 3** by [[phase-3-security-tool-layer]] / [[0005-phase-3-security-tool-layer]]: Pi → Security Tool Layer (stdio MCP) → GCP Secret Manager → Coralogix read. MCP Gateway stays deferred. Pi 1.0.4 already has native MCP; that is not a Gateway.
+Production path after GO was originally: SIEM → integration → Pi → **MCP Gateway** → vendors. **Superseded for Phase 2** by [[phase-2-security-tool-layer]] / [[0005-phase-2-security-tool-layer]]: Pi → Security Tool Layer (stdio MCP) → GCP Secret Manager → Coralogix read. MCP Gateway stays deferred. Pi 1.0.4 already has native MCP; that is not a Gateway.
 
 ## Key architectural decisions
 
@@ -122,6 +122,6 @@ None of these is required by Pi for Phase 1 (**Confirmed** for Postgres/queues; 
 
 4. **GO / NO-GO:** ≥6/9 usable, ≥6/9 agentic, zero invented Evidence. Caps: 10 minutes or 15 tool calls → `error`. Crash → `error`, re-inject. GO does not mean “integrate Coralogix.”
 
-5. **Only if Phase 1 succeeds:** evaluation (Phase 2), then Phase 3 Security Tool Layer (`pre-brainstorm.md`), then Incident state, then any remediation behind policy. MCP Gateway is not the next integration path.
+5. **Only if Phase 1 succeeds:** Phase 2 Security Tool Layer (`docs/phase-2-security-tool-layer.md`); evaluation is deferred until real queries exist; then Incident state; then any remediation behind policy. MCP Gateway is not the next integration path.
 
 **Do not write implementation code until this document is accepted.** First engineering step after acceptance is a smoke: RPC prompt, local MCP `direct` tool, builtin tools off, one fake query, structured result parsed.

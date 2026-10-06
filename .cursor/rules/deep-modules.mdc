@@ -13,7 +13,7 @@ Use these words: **module**, **interface**, **implementation**, **depth**, **sea
 ## Checks
 
 - **Deletion test**: if deleting the module just moves lines, it is shallow — do not add it.
-- **One adapter is hypothetical; two is real.** Do not inject a port unless production and tests (or Phase 3 vs Test World) actually differ.
+- **One adapter is hypothetical; two is real.** Do not inject a port unless production and tests (or Phase 2 Tool Layer vs Test World) actually differ.
 - Do not export internals so tests can reach them. If a test must see RPC events, that seam stays inside `pi-host`.
 - Prefer deepening an existing module over a new pass-through file.
 
@@ -23,7 +23,7 @@ Use these words: **module**, **interface**, **implementation**, **depth**, **sea
 - **Pi run** (`runPiInvestigation(prompt)`): owns spawn, caps, session text, close. RPC stays in the implementation (ADR-0004).
 - HTTP 409 busy stays in the HTTP adapter, not Investigation.
 - Persist key is an id from the caller (CLI basename, HTTP `type-timestamp`).
-- Phase 3 Security Tool Layer must not share Tool names with Test World queries (ADR-0005).
+- Phase 2 Security Tool Layer must not share Tool names with Test World queries (ADR-0005).
 
 ```typescript
 // bad — caller learns spawn and RPC

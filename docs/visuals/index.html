@@ -69,27 +69,25 @@
     <a href="#p1">Phase 1</a>
     <a href="#code">Codebase</a>
     <a href="#score">Score</a>
-    <a href="#p3">Phase 3</a>
+    <a href="#p2">Phase 2</a>
   </nav>
 
   <h2 id="roadmap">Roadmap</h2>
-  <p>Phase 1 is a <span class="go">thin GO</span>. That does not authorize production SIEM.</p>
+  <p>Phase 1 is a <span class="go">thin GO</span>. That does not authorize production SIEM. Eval is deferred, not a numbered phase.</p>
   <div class="diagram wide">
   <pre class="mermaid">
 graph LR
   P0[Phase 0 Pi as core]
   P1[Phase 1 isolated POC]
-  P2[Phase 2 evaluation]
-  P3[Phase 3 tool layer]
-  P4[Phase 4 response]
-  P5[Phase 5 scale]
-  P6[Phase 6 knowledge]
+  P2[Phase 2 tool layer]
+  P3[Phase 3 response]
+  P4[Phase 4 scale]
+  P5[Phase 5 knowledge]
   P0 --> P1
   P1 --> P2
   P2 --> P3
   P3 --> P4
   P4 --> P5
-  P5 --> P6
   </pre>
   </div>
 
@@ -174,7 +172,7 @@ graph LR
   </table>
   <p class="muted">01 / 04 / 05 hit the 15 tool-call cap. Not invented logs.</p>
 
-  <h2 id="p3">Phase 3 target</h2>
+  <h2 id="p2">Phase 2 tool layer</h2>
   <p class="muted">MCP Gateway deferred. Secrets stay in the layer.</p>
   <div class="diagram">
   <pre class="mermaid">

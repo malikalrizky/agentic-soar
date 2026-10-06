@@ -6,7 +6,7 @@ Committed diagrams for GitLab / GitHub / Cursor preview. Local HTML: open [`visu
 - [Phase 1 runtime](#phase-1-runtime)
 - [Codebase](#codebase)
 - [POC score](#poc-score)
-- [Phase 3 target](#phase-3-target)
+- [Phase 2 tool layer](#phase-2-tool-layer)
 
 Source numbers: [`phase-1-scoring.md`](phase-1-scoring.md), [`phase-1-result.md`](phase-1-result.md). Architecture intent: [`pre-brainstorm.md`](../pre-brainstorm.md).
 
@@ -16,18 +16,18 @@ Source numbers: [`phase-1-scoring.md`](phase-1-scoring.md), [`phase-1-result.md`
 graph LR
   P0[Phase 0 Pi as core]
   P1[Phase 1 isolated POC]
-  P2[Phase 2 evaluation]
-  P3[Phase 3 tool layer]
-  P4[Phase 4 response]
-  P5[Phase 5 scale]
-  P6[Phase 6 knowledge]
+  P2[Phase 2 tool layer]
+  P3[Phase 3 response]
+  P4[Phase 4 scale]
+  P5[Phase 5 knowledge]
   P0 --> P1
   P1 --> P2
   P2 --> P3
   P3 --> P4
   P4 --> P5
-  P5 --> P6
 ```
+
+Eval (accuracy, cost, analyst agreement) is **deferred**, not a numbered phase. Run it after real vendor queries exist.
 
 Phase 1 is a **thin GO**. That does not authorize production SIEM.
 
@@ -110,7 +110,7 @@ graph LR
 | 08 | yes | yes | no | BTP scanner |
 | 09 | yes | yes | no | empty nobody; labeled FP |
 
-## Phase 3 target
+## Phase 2 tool layer
 
 ```mermaid
 graph TB

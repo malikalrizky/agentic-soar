@@ -1,18 +1,18 @@
-# Phase 3: Security Tool Layer (design)
+# Phase 2: Security Tool Layer (design)
 
-**Status:** accepted. Not an implementation plan. Not a production-SIEM authorization. ADR: [[0005-phase-3-security-tool-layer]].
+**Status:** accepted. Not an implementation plan. Not a production-SIEM authorization. ADR: [[0005-phase-2-security-tool-layer]].
 
-Phase 1 stays isolated (Test World MCP). Phase 2 (eval) is unchanged and not designed here.
+Phase 1 stays isolated (Test World MCP). Agent evaluation is deferred until this layer can query real Coralogix; it is not a numbered phase.
 
-Language: [[GLOSSARY]]. Phase 1: [[phase-1-design]], [[phase-1-result]]. Brief: `pre-brainstorm.md` (Phase 3).
+Language: [[GLOSSARY]]. Phase 1: [[phase-1-design]], [[phase-1-result]]. Brief: `pre-brainstorm.md` (Phase 2).
 
 No fundamental flaw in “use a Security Tool Layer.” Pi 1.0.4 already has native MCP; that makes a **separate MCP process** the smallest way to keep vendor keys out of Pi. MCP Gateway stays deferred.
 
-Honest limit: same OS user as Pi can still hit Secret Manager if it has a client and a tool that can run code. Phase 3 relies on **no such tool** (`--no-builtin-tools`) plus secrets never placed in Pi env. That is process isolation, not a hostile multi-tenant VM.
+Honest limit: same OS user as Pi can still hit Secret Manager if it has a client and a tool that can run code. Phase 2 relies on **no such tool** (`--no-builtin-tools`) plus secrets never placed in Pi env. That is process isolation, not a hostile multi-tenant VM.
 
 ---
 
-## 1. Recommended Phase 3 architecture
+## 1. Recommended Phase 2 architecture
 
 ```text
 Test Alert or later intake
@@ -48,7 +48,7 @@ Pi never gets Coralogix keys, never calls Secret Manager, never speaks vendor HT
 | One retry on 429/5xx (Retry-After / backoff) | MUST HAVE NOW |
 | Structured error to Pi (no empty-hit lie) | MUST HAVE NOW |
 | Audit log (local, structured: tool, arg hash, timing, status) | MUST HAVE NOW |
-| Authorization / RBAC / approvals | FUTURE (Phase 4 actions) |
+| Authorization / RBAC / approvals | FUTURE (Phase 3 actions) |
 | Rate limiter service | FUTURE (host 15-call cap + timeouts are enough) |
 | Idempotency keys | FUTURE (writes) |
 | Network MCP / mTLS | FUTURE (split host) |
@@ -67,11 +67,11 @@ Pi never gets Coralogix keys, never calls Secret Manager, never speaks vendor HT
 
 **Tool plane:** native MCP stdio. New `.pi/mcp.json` server (name `security` or similar), `command`/`args` to a **new** process in this repo. Not `src/mcp-server.ts`. Not in-process `pi.registerTool()` for vendor calls (handler would share the Pi process). Not SDK `createMcpExtension()` (RPC CLI already loads `.pi/mcp.json`). Not HTTP/gRPC for the minimum.
 
-Default Pi MCP exposure is `codemode` (tools hidden from the model). Phase 3 must set `direct` again.
+Default Pi MCP exposure is `codemode` (tools hidden from the model). Phase 2 must set `direct` again.
 
 Model-visible name: `mcp__<server>__coralogix_search`. Prompt/docs must use that, or Flash will invent `query_host` again.
 
-Repo `package.json` still pins Pi **0.87.1**; real MCP is the **1.0.4 CLI** via `PI_CLI`. Phase 3 must not spawn the 0.87.1 child.
+Repo `package.json` still pins Pi **0.87.1**; real MCP is the **1.0.4 CLI** via `PI_CLI`. Phase 2 must not spawn the 0.87.1 child.
 
 ---
 
@@ -119,7 +119,7 @@ Same-user VM/laptop: Pi *could* call GSM if we gave it bash or a GSM tool. Bound
 
 ## 6. Threat model
 
-| Threat | Phase 3 control |
+| Threat | Phase 2 control |
 |---|---|
 | Prompt injection → extra vendor reads | One read-only tool; query limits; 15-call cap (host) |
 | Prompt injection → containment / delete | No mutating tools; read-only Coralogix credential |
@@ -156,21 +156,21 @@ Success for the *layer*: Pi can run an Investigation that calls `coralogix_searc
 ## 8. Future autonomous-response evolution
 
 ```text
-Pi reasoning → tool request → (Phase 4) authorization/policy → Tool Layer → vendor action
+Pi reasoning → tool request → (Phase 3) authorization/policy → Tool Layer → vendor action
 ```
 
 | Capability | Lives where | When |
 |---|---|---|
-| RBAC / allowlists / approvals / risk | **In front of** the Tool Layer (host or tiny policy check), not a new SOAR | Phase 4 |
-| Mutating tools | Tool Layer, registered only after policy exists | Phase 4 |
-| Rate limits / kill switch | Host abort + “disable mutating tools” flag; optional GSM revoke | Phase 4 |
-| Audit of actions | Same audit log, richer fields | Phase 4 |
-| Idempotency | Tool Layer on writes | Phase 4 |
+| RBAC / allowlists / approvals / risk | **In front of** the Tool Layer (host or tiny policy check), not a new SOAR | Phase 3 |
+| Mutating tools | Tool Layer, registered only after policy exists | Phase 3 |
+| Rate limits / kill switch | Host abort + “disable mutating tools” flag; optional GSM revoke | Phase 3 |
+| Audit of actions | Same audit log, richer fields | Phase 3 |
+| Idempotency | Tool Layer on writes | Phase 3 |
 | Second vendor tools | Same MCP process, new names | After Coralogix is boring |
 | HTTP MCP / split VM | Transport change only | When something other than this Pi must call the layer |
 | Dedicated OS user | Ops | When the VM is real and we care about same-user GSM |
 
-Do not build a policy engine in Phase 3.
+Do not build a policy engine in Phase 2.
 
 ---
 
@@ -193,7 +193,7 @@ Do not build a policy engine in Phase 3.
 - Pi as Investigation core; Bun RPC host; one Investigation at a time.
 - Native MCP, `exposure: direct`, `--no-builtin-tools`.
 - Isolated Test World MCP and Phase 1 corpus.
-- Gerbang + frozen Flash until eval says otherwise.
+- Gerbang + frozen Flash until a later eval says otherwise.
 - Thin Tool Layer (execute, auth via SM, validate, bound, redact, timeout, audit).
 - Vendor-narrow tools; no `arbitrary_http_request`.
 - Fail closed; never fake empty Evidence.
@@ -201,9 +201,9 @@ Do not build a policy engine in Phase 3.
 
 **CHANGE** (from older discovery drafts)
 
-- Phase 3 path is Tool Layer + SM, **not** MCP Gateway.
+- Next numbered phase after the POC is the Tool Layer + SM, **not** MCP Gateway and **not** an eval program.
+- Agent evaluation is deferred (not Phase 2). Old “Phase 3 = SOAR control plane” is still the wrong label (Incident stays later).
 - “Do not assume Pi has MCP” is false for 1.0.4.
-- Discovery doc’s “Phase 3 = SOAR control plane” is the wrong label for this work (Incident still later).
 - Prefer MCP child over in-process Pi tools for vendor credentials.
 
 **DEFER**
@@ -215,6 +215,7 @@ Do not build a policy engine in Phase 3.
 - Dedicated OS user / separate SA per process.
 - Cloud Logging as the audit sink.
 - Raising the 15-call cap (host/eval concern).
+- Agent evaluation (accuracy, cost, analyst agreement, regression set) until `coralogix_search` runs on real data.
 
 **REJECT** (for this layer / this phase)
 

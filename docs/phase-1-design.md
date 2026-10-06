@@ -72,4 +72,4 @@ A GO does **not** authorize production SIEM or vendor integration.
 
 ## Future (not designed in Phase 1)
 
-Phase 3 target is now Pi → Security Tool Layer → Secret Manager → vendor APIs (`pre-brainstorm.md`). MCP Gateway is deferred. Evaluation is still Phase 2. Incident/response/scale/knowledge stay later.
+Phase 2 target is Pi → Security Tool Layer → Secret Manager → vendor APIs (`docs/phase-2-security-tool-layer.md`). MCP Gateway is deferred. Agent evaluation is deferred until real queries exist. Incident/response/scale/knowledge stay later.

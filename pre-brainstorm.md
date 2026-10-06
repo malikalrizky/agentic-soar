@@ -25,7 +25,7 @@ Security APIs
 (CrowdStrike / Wiz / Coralogix / etc.)
 ```
 
-MCP Gateway is deferred. Pi 1.0.4+ has native MCP; Phase 3 still keeps vendor credentials out of Pi via a thin Security Tool Layer.
+MCP Gateway is deferred. Pi 1.0.4+ has native MCP; Phase 2 still keeps vendor credentials out of Pi via a thin Security Tool Layer.
 
 The goal is to determine whether Pi can serve as the AI investigation engine behind an in-house SOC automation platform.
 
@@ -46,7 +46,9 @@ Clearly separate:
 - Phase 1: SOC investigation POC
 
 ### Future vision
-- Phase 2 onward
+- Phase 2: Security Tool Layer
+- Then response, scale, knowledge
+- Agent evaluation is deferred (not numbered)
 
 Do not spend implementation-level effort designing future phases. They should remain architectural/high-level only.
 
@@ -319,7 +321,7 @@ At minimum:
 - Resource consumption is understood.
 - Failures can be detected and handled at a basic level.
 
-Do not turn Phase 1 into a production-readiness or model-evaluation program. That work is Phase 2 (accuracy, evidence quality, cost, analyst agreement).
+Do not turn Phase 1 into a production-readiness or model-evaluation program. Accuracy, cost, and analyst agreement are deferred until real vendor queries exist.
 
 ---
 
@@ -350,27 +352,9 @@ The purpose of Phase 1 is to validate the hypothesis.
 
 If Phase 1 succeeds, describe the possible future roadmap at a high level.
 
-### Phase 2: Agent Evaluation
+### Phase 2: Real integrations + Security Tool Layer
 
-Evaluate:
-
-- verdict accuracy
-- false positives / false negatives
-- evidence quality
-- investigation completeness
-- hallucinations / unsupported claims
-- tool-selection quality
-- latency
-- cost
-- analyst agreement
-- regression testing
-- representative evaluation datasets
-
----
-
-### Phase 3: Real integrations + Security Tool Layer
-
-Phase 1 and Phase 2 stay as written. Phase 3 is **not** a control plane or a second SOAR.
+Phase 2 is **not** a control plane, a second SOAR, or an evaluation program.
 
 ```text
 Pi
@@ -413,11 +397,31 @@ Pi → Security Platform → SOAR → Workflow Engine → Policy Engine → Inte
 
 Every extra component must justify itself.
 
-Durable incident state (lifecycle, escalation, human approval, investigation history, whether PostgreSQL belongs) is **not** Phase 3. That stays with later production/control-plane work. Pi session files and SOAR incident state remain separate; PostgreSQL is not Pi’s session backend.
+Durable incident state (lifecycle, escalation, human approval, investigation history, whether PostgreSQL belongs) is **not** Phase 2. That stays with later production/control-plane work. Pi session files and SOAR incident state remain separate; PostgreSQL is not Pi’s session backend.
 
 ---
 
-### Phase 4: Controlled Automated Response
+### Deferred: Agent evaluation
+
+After `coralogix_search` (or another real read tool) actually runs, evaluate:
+
+- verdict accuracy
+- false positives / false negatives
+- evidence quality
+- investigation completeness
+- hallucinations / unsupported claims
+- tool-selection quality
+- latency
+- cost
+- analyst agreement
+- regression testing
+- representative evaluation datasets
+
+This is not a numbered phase and is not a gate between the POC and the Tool Layer. The nine Test Alerts are not this program.
+
+---
+
+### Phase 3: Controlled Automated Response
 
 Introduce carefully controlled remediation.
 
@@ -444,7 +448,7 @@ Start with low-risk actions and require appropriate human/policy controls.
 
 ---
 
-### Phase 5: Production & Scale
+### Phase 4: Production & Scale
 
 Evaluate:
 
@@ -465,7 +469,7 @@ Only introduce distributed infrastructure when justified by actual requirements.
 
 ---
 
-### Phase 6: Knowledge & Advanced Agent Architecture
+### Phase 5: Knowledge & Advanced Agent Architecture
 
 Treat long-term knowledge management as a separate architectural problem.
 

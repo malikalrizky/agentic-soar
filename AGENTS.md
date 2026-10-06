@@ -6,7 +6,7 @@
 ## Notes
 - Deep modules when changing `src/` / `tests/`: `.cursor/rules/deep-modules.mdc`.
 - Phase 1 isolated POC: thin GO. Details in `docs/phase-1-result.md`.
-- Pi 1.0.4 has native MCP; MCP Gateway is deferred. Phase 3 target is Security Tool Layer (`pre-brainstorm.md`).
+- Pi 1.0.4 has native MCP; MCP Gateway is deferred. Next numbered phase is the Security Tool Layer (`docs/phase-2-security-tool-layer.md`). Agent evaluation is deferred.
 
 <!-- antislop:start -->
 ## antislop
