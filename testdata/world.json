@@ -1,0 +1,97 @@
+{
+  "authentication": [
+    {
+      "user": "alice",
+      "host": "alice-mbp",
+      "ip": "203.0.113.10",
+      "timestamp": "2026-01-01T10:00:00Z",
+      "src_geo": "SG",
+      "is_known_office": false
+    },
+    {
+      "user": "alice",
+      "host": "alice-mbp",
+      "ip": "198.51.100.4",
+      "timestamp": "2026-01-01T10:40:00Z",
+      "src_geo": "US",
+      "is_known_office": false
+    },
+    {
+      "user": "bob",
+      "host": "bob-win",
+      "ip": "10.0.0.8",
+      "timestamp": "2026-01-01T09:00:00Z",
+      "src_geo": "US",
+      "is_known_office": true
+    },
+    {
+      "user": "scanner-svc",
+      "host": "scanner-host",
+      "ip": "10.0.0.50",
+      "timestamp": "2026-01-01T08:00:00Z",
+      "src_geo": "US",
+      "is_known_office": true
+    },
+    {
+      "user": "scanner-svc",
+      "host": "scanner-host",
+      "ip": "10.0.0.50",
+      "timestamp": "2026-01-01T08:05:00Z",
+      "src_geo": "US",
+      "is_known_office": true
+    }
+  ],
+  "endpoint": [
+    { "user": "alice", "host": "alice-mbp", "ip": "203.0.113.10", "timestamp": "2026-01-01T10:00:00Z" },
+    { "user": "bob", "host": "bob-win", "ip": "10.0.0.8", "timestamp": "2026-01-01T09:00:00Z" },
+    { "user": "scanner-svc", "host": "scanner-host", "ip": "10.0.0.50", "timestamp": "2026-01-01T08:00:00Z" }
+  ],
+  "process": [
+    {
+      "user": "alice",
+      "host": "alice-mbp",
+      "ip": "203.0.113.10",
+      "timestamp": "2026-01-01T10:42:00Z",
+      "process_name": "weird.exe",
+      "hash": "aa",
+      "known_good": false
+    },
+    {
+      "user": "bob",
+      "host": "bob-win",
+      "ip": "10.0.0.8",
+      "timestamp": "2026-01-01T09:01:00Z",
+      "process_name": "outlook.exe",
+      "hash": "bb",
+      "known_good": true
+    },
+    {
+      "user": "scanner-svc",
+      "host": "scanner-host",
+      "ip": "10.0.0.50",
+      "timestamp": "2026-01-01T08:01:00Z",
+      "process_name": "backup-agent",
+      "hash": "cc",
+      "known_good": true
+    }
+  ],
+  "ip": [
+    { "ip": "203.0.113.10", "user": "alice", "host": "alice-mbp", "timestamp": "2026-01-01T10:00:00Z", "src_geo": "SG" },
+    { "ip": "198.51.100.4", "user": "alice", "host": "alice-mbp", "timestamp": "2026-01-01T10:40:00Z", "src_geo": "US" },
+    { "ip": "10.0.0.8", "user": "bob", "host": "bob-win", "timestamp": "2026-01-01T09:00:00Z", "src_geo": "US" }
+  ],
+  "user": [
+    { "user": "alice", "host": "alice-mbp", "ip": "203.0.113.10", "timestamp": "2026-01-01T00:00:00Z", "role": "engineer" },
+    { "user": "bob", "host": "bob-win", "ip": "10.0.0.8", "timestamp": "2026-01-01T00:00:00Z", "role": "engineer" },
+    { "user": "scanner-svc", "host": "scanner-host", "ip": "10.0.0.50", "timestamp": "2026-01-01T00:00:00Z", "role": "service" }
+  ],
+  "related_alerts": [
+    { "user": "alice", "host": "alice-mbp", "ip": "198.51.100.4", "timestamp": "2026-01-01T10:41:00Z", "title": "impossible_travel" },
+    { "user": "scanner-svc", "host": "scanner-host", "ip": "10.0.0.50", "timestamp": "2026-01-01T08:02:00Z", "title": "scanner" }
+  ],
+  "assets": [
+    { "hostname": "alice-mbp", "user": "alice", "host": "alice-mbp", "ip": "203.0.113.10", "timestamp": "2026-01-01T00:00:00Z", "role": "laptop" },
+    { "hostname": "bob-win", "user": "bob", "host": "bob-win", "ip": "10.0.0.8", "timestamp": "2026-01-01T00:00:00Z", "role": "workstation" },
+    { "hostname": "scanner-host", "user": "scanner-svc", "host": "scanner-host", "ip": "10.0.0.50", "timestamp": "2026-01-01T00:00:00Z", "role": "scanner" }
+  ]
+}
