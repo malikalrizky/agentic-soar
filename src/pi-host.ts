@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   FROZEN_PI_MODEL,
   INVESTIGATION_MAX_TOOL_CALLS,
@@ -26,7 +27,7 @@ export class PiHostError extends Error {
   }
 }
 
-export type RpcClientLike = {
+type RpcClientLike = {
   start(): Promise<void>;
   promptAndWait(message: string): Promise<void>;
   abort(): Promise<void>;
@@ -37,7 +38,7 @@ export type RpcClientLike = {
   getLastAssistantText?: () => string | null | Promise<string | null>;
 };
 
-export function countToolCall(event: {
+function countToolCall(event: {
   type: string;
   assistantMessageEvent?: { type: string };
 }): boolean {
@@ -58,7 +59,7 @@ export function gerbangDkExtensionPath(): string {
   return fileURLToPath(new URL("../extensions/gerbang-dk.mjs", import.meta.url));
 }
 
-export function lastAssistantTextFromSession(sessionFile: string): string {
+function lastAssistantTextFromSession(sessionFile: string): string {
   let raw: string;
   try {
     raw = readFileSync(sessionFile, "utf8");
@@ -109,10 +110,36 @@ export function piSpawnArgs(opts: { sessionDir: string; systemPromptPath: string
 }
 
 export async function runPiInvestigation(
+  prompt: string,
+  deps: {
+    client?: RpcClientLike;
+    now?: () => number;
+    wait?: (ms: number, signal: AbortSignal) => Promise<void>;
+    sessionDir?: string;
+    systemPromptPath?: string;
+  } = {},
+): Promise<PiRunOk> {
+  const now = deps.now ?? Date.now;
+  const wait = deps.wait ?? defaultWait;
+  const owned = !deps.client;
+  const client =
+    deps.client ??
+    createPiClient({
+      sessionDir: deps.sessionDir ?? resolve("var/pi-sessions"),
+      systemPromptPath: deps.systemPromptPath ?? resolve("prompts/investigation.md"),
+    });
+  try {
+    return await runWithClient(client, prompt, now, wait);
+  } finally {
+    if (owned) await client.close();
+  }
+}
+
+async function runWithClient(
   client: RpcClientLike,
   prompt: string,
-  now: () => number = Date.now,
-  wait: (ms: number, signal: AbortSignal) => Promise<void> = defaultWait,
+  now: () => number,
+  wait: (ms: number, signal: AbortSignal) => Promise<void>,
 ): Promise<PiRunOk> {
   let toolCallCount = 0;
   let aborted = false;
@@ -193,7 +220,7 @@ async function defaultWait(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-export function createPiClient(opts: { sessionDir: string; systemPromptPath: string }): RpcClientLike {
+function createPiClient(opts: { sessionDir: string; systemPromptPath: string }): RpcClientLike {
   const adapter = ensureGerbangAdapterEnv();
   const model = process.env.PI_MODEL?.trim() || FROZEN_PI_MODEL;
   const inner = new RpcClient({

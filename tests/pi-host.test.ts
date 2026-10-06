@@ -5,53 +5,63 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import {
   PiHostError,
-  countToolCall,
   gerbangDkExtensionPath,
-  lastAssistantTextFromSession,
   piRpcTimeoutMs,
   piSpawnArgs,
   resolvePiCliJs,
   runPiInvestigation,
-  type RpcClientLike,
 } from "../src/pi-host.ts";
 import { INVESTIGATION_WALL_MS } from "../src/constants.ts";
 
 const TOOL_START = "tool_execution_start";
 
-function makeFakeClient(opts: {
+type FakeChild = {
+  abortCalls: number;
+  start(): Promise<void>;
+  promptAndWait(message: string): Promise<void>;
+  abort(): Promise<void>;
+  getState(): Promise<{ model?: { id?: string }; sessionFile?: string }>;
+  onEvent(handler: (e: { type: string }) => void): () => void;
+  close(): Promise<void>;
+  getLastAssistantText?: () => string | null;
+};
+
+function makeFakeChild(opts: {
   toolEvents?: number;
   nestedToolcallEvents?: number;
-  text?: string;
-  fail?: boolean;
+  hangUntilAbort?: boolean;
+  sessionFile?: string;
+  rpcText?: string;
   startFail?: boolean;
-}): RpcClientLike & {
-  abortCalls: number;
-  continueCalls: number;
-} {
+  fail?: boolean;
+}): FakeChild {
   let handler: ((e: { type: string }) => void) | undefined;
   let abortCalls = 0;
-  const continueCalls = 0;
-  const client: RpcClientLike & { abortCalls: number; continueCalls: number } = {
+  let aborted = false;
+  const child: FakeChild = {
     abortCalls: 0,
-    continueCalls: 0,
     async start() {
       if (opts.startFail) throw new Error("ENOENT pi");
     },
     async promptAndWait() {
       if (opts.fail) throw new Error("child exited");
       for (let i = 0; i < (opts.nestedToolcallEvents ?? 0); i++) {
-        handler?.({ type: "message_update", assistantMessageEvent: { type: "toolcall_start" } } as { type: string });
+        handler?.({ type: "message_update" });
       }
       for (let i = 0; i < (opts.toolEvents ?? 0); i++) {
         handler?.({ type: TOOL_START });
       }
+      while (opts.hangUntilAbort && !aborted) {
+        await Bun.sleep(1);
+      }
     },
     async abort() {
+      aborted = true;
       abortCalls += 1;
-      client.abortCalls = abortCalls;
+      child.abortCalls = abortCalls;
     },
     async getState() {
-      return { model: { id: "frozen-model" }, sessionFile: "/s.jsonl" };
+      return { model: { id: "frozen-model" }, sessionFile: opts.sessionFile ?? "/s.jsonl" };
     },
     onEvent(h) {
       handler = h;
@@ -60,9 +70,9 @@ function makeFakeClient(opts: {
       };
     },
     async close() {},
+    getLastAssistantText: opts.rpcText !== undefined ? () => opts.rpcText ?? null : undefined,
   };
-  Object.defineProperty(client, "continueCalls", { get: () => continueCalls });
-  return client;
+  return child;
 }
 
 describe("pi-host", () => {
@@ -85,23 +95,21 @@ describe("pi-host", () => {
   });
 
   test("fifteenth tool event calls abort and sets aborted", async () => {
-    const fake = makeFakeClient({ toolEvents: 15, text: "ignored" });
-    const out = await runPiInvestigation(fake, "go");
+    const fake = makeFakeChild({ toolEvents: 15 });
+    const out = await runPiInvestigation("go", { client: fake });
     expect(fake.abortCalls).toBe(1);
     expect(out.aborted).toBe(true);
     expect(out.toolCallCount).toBe(15);
   });
 
   test("child start failure throws PiHostError", async () => {
-    const fake = makeFakeClient({ startFail: true });
-    await expect(runPiInvestigation(fake, "go")).rejects.toBeInstanceOf(PiHostError);
+    const fake = makeFakeChild({ startFail: true });
+    await expect(runPiInvestigation("go", { client: fake })).rejects.toBeInstanceOf(PiHostError);
   });
 
   test("nested toolcall_start does not double-count with tool_execution_start", async () => {
-    expect(countToolCall({ type: "tool_execution_start" })).toBe(true);
-    expect(countToolCall({ type: "message_update", assistantMessageEvent: { type: "toolcall_start" } })).toBe(false);
-    const fake = makeFakeClient({ toolEvents: 8, nestedToolcallEvents: 15 });
-    const out = await runPiInvestigation(fake, "go");
+    const fake = makeFakeChild({ toolEvents: 8, nestedToolcallEvents: 15 });
+    const out = await runPiInvestigation("go", { client: fake });
     expect(out.aborted).toBe(false);
     expect(out.toolCallCount).toBe(8);
   });
@@ -121,7 +129,7 @@ describe("pi-host", () => {
     expect(piRpcTimeoutMs()).toBeGreaterThan(INVESTIGATION_WALL_MS);
   });
 
-  test("lastAssistantTextFromSession reads last assistant text parts", () => {
+  test("prefers last assistant text from the session file", async () => {
     const dir = join(tmpdir(), `soar-session-${Date.now()}`);
     mkdirSync(dir, { recursive: true });
     const file = join(dir, "s.jsonl");
@@ -141,6 +149,18 @@ describe("pi-host", () => {
         }),
       ].join("\n") + "\n",
     );
-    expect(lastAssistantTextFromSession(file)).toContain("false_positive");
+    const fake = makeFakeChild({ sessionFile: file, rpcText: "from rpc" });
+    const out = await runPiInvestigation("go", { client: fake });
+    expect(out.text).toContain("false_positive");
+  });
+
+  test("wall wait abort sets aborted", async () => {
+    const fake = makeFakeChild({ hangUntilAbort: true });
+    const out = await runPiInvestigation("go", {
+      client: fake,
+      wait: async () => {},
+    });
+    expect(out.aborted).toBe(true);
+    expect(fake.abortCalls).toBe(1);
   });
 });

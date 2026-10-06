@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import {
   errorResult,
   extractJsonObject,
@@ -5,9 +6,10 @@ import {
   type InvestigationResult,
   type TestAlert,
 } from "./schema.ts";
-import { PiHostError, type PiRunOk, type RpcClientLike } from "./pi-host.ts";
+import { PiHostError, runPiInvestigation, type PiRunOk } from "./pi-host.ts";
+import { resultPath, writeResultFile } from "./write-result.ts";
 
-export function formatAlertPrompt(alert: TestAlert): string {
+function formatAlertPrompt(alert: TestAlert): string {
   return [
     "Investigate this Test Alert using telemetry tools. Next steps must depend on evidence.",
     "Return one Investigation Result JSON object (no model_id).",
@@ -15,19 +17,23 @@ export function formatAlertPrompt(alert: TestAlert): string {
   ].join("\n");
 }
 
+export type InvestigationDeps = {
+  runPi?: (prompt: string) => Promise<PiRunOk>;
+  outDir?: string;
+};
+
 export async function runInvestigation(
   alert: TestAlert,
-  deps: {
-    runPi: (client: RpcClientLike, prompt: string) => Promise<PiRunOk>;
-    client: RpcClientLike;
-  },
-  write: (result: InvestigationResult, sessionFile: string | null) => void,
+  persistKey: string,
+  deps: InvestigationDeps = {},
 ): Promise<InvestigationResult> {
   const prompt = formatAlertPrompt(alert);
+  const outDir = deps.outDir ?? resolve("var/results");
+  const runPi = deps.runPi ?? runPiInvestigation;
   let result: InvestigationResult;
   let sessionFile: string | null = null;
   try {
-    const run = await deps.runPi(deps.client, prompt);
+    const run = await runPi(prompt);
     sessionFile = run.sessionFile;
     if (run.aborted) {
       result = errorResult(run.modelId, "cap: 10m or 15 tool calls");
@@ -45,6 +51,6 @@ export async function runInvestigation(
       throw err;
     }
   }
-  write(result, sessionFile);
+  writeResultFile(resultPath(persistKey, outDir), result, sessionFile);
   return result;
 }

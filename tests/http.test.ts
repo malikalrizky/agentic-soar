@@ -28,23 +28,8 @@ async function invoke(
 }
 
 describe("http", () => {
-  test("POST /investigate 409 when busy", async () => {
-    const handler = createInvestigateHandler({
-      busy: { current: true },
-      run: async () => {
-        throw new Error("should not run");
-      },
-    });
-    const { status, body } = await invoke(handler, "POST", "/investigate", {
-      alert: { type: "suspicious_login", timestamp: "2026-01-01T00:00:00Z" },
-    });
-    expect(status).toBe(409);
-    expect(body.error).toBe("investigation_in_progress");
-  });
-
   test("POST /investigate 400 on empty body", async () => {
     const handler = createInvestigateHandler({
-      busy: { current: false },
       run: async () => errorResult("m", "n"),
     });
     const { status } = await invoke(handler, "POST", "/investigate", null);
@@ -52,14 +37,12 @@ describe("http", () => {
   });
 
   test("overlapping POST /investigate starts run once", async () => {
-    const busy = { current: false };
     let entered = 0;
     let release!: () => void;
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
     const handler = createInvestigateHandler({
-      busy,
       run: async () => {
         entered += 1;
         await held;
