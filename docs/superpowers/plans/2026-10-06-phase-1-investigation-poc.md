@@ -4,15 +4,15 @@
 
 **Goal:** Ship a local, unattended Test Alert → Pi RPC → mock telemetry MCP → Investigation Result file pipeline, plus a nine-alert corpus, so we can GO/NO-GO Pi as a SOC investigation engine.
 
-**Architecture:** A small Node/TypeScript host spawns one `pi --mode rpc` child at a time, never stuffing telemetry into the prompt. A stdio MCP server exposes query tools over one shared Test World (`exposure: direct`). Caps (10 minutes or 15 tool calls) abort the run and emit `alert_disposition: error`. No production systems, no gateway, no database.
+**Architecture:** A small Bun/TypeScript host spawns one Node `pi --mode rpc` child at a time, never stuffing telemetry into the prompt. A stdio MCP server (also Bun) exposes query tools over one shared Test World (`exposure: direct`). Caps (10 minutes or 15 tool calls) abort the run and emit `alert_disposition: error`. No production systems, no gateway, no database.
 
-**Tech Stack:** Node.js 22.19+, TypeScript, vitest, `@modelcontextprotocol/sdk` (stdio MCP), `@earendil-works/pi-coding-agent` (`RpcClient` only — do not embed `createAgentSession`), Node `http` for `POST /investigate`.
+**Tech Stack:** Bun ≥ 1.4.2 (host, MCP server, `bun test`), TypeScript, `@modelcontextprotocol/sdk` (stdio MCP), `@earendil-works/pi-coding-agent` (`RpcClient` only — do not embed `createAgentSession`), `Bun.serve` for `POST /investigate`. Pi CLI remains Node.js 22.19+ on PATH.
 
 **Spec:** `docs/architecture-discovery.md` and `docs/phase-1-design.md` (language in `GLOSSARY.md`).
 
 ## Global Constraints
 
-- Node.js 22.19 or newer (Pi CLI requirement).
+- Host and MCP: Bun ≥ 1.4.2. Pi child: Node.js 22.19+ `pi` on PATH (do not reimplement Pi in Bun).
 - Drive Pi with CLI RPC only; do not use the in-process SDK session factory.
 - No PostgreSQL, queues, n8n, ADK, Kubernetes, MCP Gateway, or production SIEM/CrowdStrike/Wiz/Coralogix.
 - Phase 1 is read-only: never call or mock containment APIs.
@@ -32,7 +32,7 @@
 - `src/mcp-server.ts` — stdio MCP wrapping world query handlers
 - `src/pi-host.ts` — spawn/control Pi RPC, count tool events, abort
 - `src/investigate.ts` — alert → prompt → parse → write JSONL
-- `src/cli.ts` — `tsx src/cli.ts <alert.json>`
+- `src/cli.ts` — `bun src/cli.ts <alert.json>`
 - `src/http.ts` — `POST /investigate`, 409 if busy
 - `prompts/investigation.md` — SOC investigator system prompt (replace Pi coding default)
 - `testdata/world.json` — one Test World
@@ -56,7 +56,7 @@ These are pinned to tasks below (not left as “manual only”).
 ### Task 1: Schema and error results
 
 **Files:**
-- Create: `package.json`, `tsconfig.json`, `vitest.config.ts`, `.gitignore`
+- Create: `package.json`, `tsconfig.json`, `.gitignore` (no `vitest.config.ts`; no `tsx`). If the repo already has a Node/vitest `package.json`, replace it.
 - Create: `src/schema.ts`, `src/constants.ts`
 - Test: `tests/schema.test.ts`
 
@@ -73,7 +73,7 @@ These are pinned to tasks below (not left as “manual only”).
   - `export function parseInvestigationResult(raw: unknown, modelId: string): InvestigationResult`
   - `export function errorResult(modelId: string, summary: string): InvestigationResult` — disposition `error`, posture `needs_human`, confidence `low`, empty evidence/steps/entities except `summary` and `assumptions: []`
 
-- [ ] **Step 1: Write the failing tests** in `tests/schema.test.ts`
+Use `import { test, expect } from "bun:test"`.
 
 ```ts
 test("parseInvestigationResult accepts a full valid object and sets model_id from the argument", () => {
@@ -115,7 +115,7 @@ test("errorResult uses alert_disposition error and recommended_posture needs_hum
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `npx vitest run tests/schema.test.ts`
+Run: `bun test tests/schema.test.ts`
 Expected: FAIL (modules missing)
 
 - [ ] **Step 3: Implement `src/schema.ts` and `src/constants.ts`**
@@ -124,13 +124,13 @@ Expected: FAIL (modules missing)
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `npx vitest run tests/schema.test.ts`
+Run: `bun test tests/schema.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add package.json tsconfig.json vitest.config.ts .gitignore src/schema.ts src/constants.ts tests/schema.test.ts
+git add package.json tsconfig.json .gitignore src/schema.ts src/constants.ts tests/schema.test.ts
 git commit -m "feat: add investigation result schema"
 ```
 
@@ -189,13 +189,13 @@ test("alice process hash aa is not on bob", () => {
 });
 ```
 
-- [ ] **Step 2: Run** `npx vitest run tests/world.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/world.test.ts` — Expected: FAIL
 
 - [ ] **Step 3: Implement `loadTestWorld` and the seven query functions in `src/world.ts`; write `testdata/world.json`**
 
 Do not add per-alert “expected tool path” fields.
 
-- [ ] **Step 4: Run** `npx vitest run tests/world.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/world.test.ts` — Expected: PASS
 
 - [ ] **Step 5: Commit** `feat: add shared test world queries`
 
@@ -220,8 +220,8 @@ Do not add per-alert “expected tool path” fields.
 {
   "mcpServers": {
     "telemetry": {
-      "command": "npx",
-      "args": ["tsx", "src/mcp-server.ts"],
+      "command": "bun",
+      "args": ["src/mcp-server.ts"],
       "exposure": "direct"
     }
   }
@@ -243,11 +243,11 @@ test("unknown tool name throws", () => {
 });
 ```
 
-- [ ] **Step 2: Run** `npx vitest run tests/mcp-handlers.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/mcp-handlers.test.ts` — Expected: FAIL
 
 - [ ] **Step 3: Implement `handleTelemetryTool` and MCP stdio `main` using `@modelcontextprotocol/sdk` Server + StdioServerTransport.** Tools are read-only JSON results. No write/isolate tools.
 
-- [ ] **Step 4: Run** `npx vitest run tests/mcp-handlers.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/mcp-handlers.test.ts` — Expected: PASS
 
 - [ ] **Step 5: Commit** `feat: add local telemetry MCP handlers`
 
@@ -303,11 +303,11 @@ test("child failure throws PiHostError and does not call newSession after fail",
 
 `makeFakeClient` is test-local. Emit 15 `{ type: "<pinned tool-start type>" }` then resolve prompt.
 
-- [ ] **Step 2: Run** `npx vitest run tests/pi-host.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/pi-host.test.ts` — Expected: FAIL
 
 - [ ] **Step 3: Implement `src/pi-host.ts`.** Factory that constructs real `RpcClient` from `@earendil-works/pi-coding-agent` with `cliPath: "pi"` and `args: piSpawnArgs(...)` lives here as `export function createPiClient(opts): RpcClientLike` wrapping the real client. If `RpcClient` constructor shape differs, adapt in this one function only.
 
-- [ ] **Step 4: Run** `npx vitest run tests/pi-host.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/pi-host.test.ts` — Expected: PASS
 
 - [ ] **Step 5: Commit** `feat: add Pi RPC host with investigation caps`
 
@@ -358,11 +358,11 @@ The fake must satisfy `runPiInvestigation` **or** `runInvestigation` should acce
 
 Revised produces: `runInvestigation(alert: TestAlert, deps: { runPi: (client: RpcClientLike, prompt: string) => Promise<PiRunOk>; client: RpcClientLike }, write: (result: InvestigationResult) => void): Promise<InvestigationResult>`
 
-- [ ] **Step 2: Run** `npx vitest run tests/investigate.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/investigate.test.ts` — Expected: FAIL
 
 - [ ] **Step 3: Implement `formatAlertPrompt`, `runInvestigation`, and `prompts/investigation.md`**
 
-- [ ] **Step 4: Run** `npx vitest run tests/investigate.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/investigate.test.ts` — Expected: PASS
 
 - [ ] **Step 5: Commit** `feat: orchestrate investigation result parse and errors`
 
@@ -380,7 +380,7 @@ Revised produces: `runInvestigation(alert: TestAlert, deps: { runPi: (client: Rp
   - `export function resultPath(alertFileOrId: string, outDir: string): string` — `outDir/<basename>.result.json`
   - `export function writeResultFile(path: string, result: InvestigationResult): void` — pretty JSON, also append one line to `outDir/results.jsonl`
   - `export function loadAlert(path: string): TestAlert`
-  - `export function createInvestigateHandler(opts: { busy: { current: boolean }; run: (alert: TestAlert) => Promise<InvestigationResult> }): (req: IncomingMessage, res: ServerResponse) => Promise<void>`
+  - `export function createInvestigateHandler(opts: { busy: { current: boolean }; run: (alert: TestAlert) => Promise<InvestigationResult> }): (req: Request) => Promise<Response>`
     - only `POST /investigate`
     - body `{ "alert": TestAlert }`
     - missing/invalid JSON → 400
@@ -409,13 +409,13 @@ test("loadAlert reads testdata shape", () => {
 });
 ```
 
-`invoke` is a tiny test helper using `http.request` against `http.createServer(handler).listen(0)`.
+`invoke` is a tiny test helper: `Bun.serve({ port: 0, fetch: handler })` then `fetch`, then `server.stop()`.
 
-- [ ] **Step 2: Run** `npx vitest run tests/http.test.ts tests/cli.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/http.test.ts tests/cli.test.ts` — Expected: FAIL
 
-- [ ] **Step 3: Implement write/load helpers, HTTP handler, CLI. `src/http.ts` `main` listens on `PORT` or 8787.**
+- [ ] **Step 3: Implement write/load helpers, HTTP handler, CLI. `src/http.ts` `main` uses `Bun.serve` on `PORT` or 8787.**
 
-- [ ] **Step 4: Run** `npx vitest run tests/http.test.ts tests/cli.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/http.test.ts tests/cli.test.ts` — Expected: PASS
 
 - [ ] **Step 5: Commit** `feat: add test alert CLI and HTTP trigger`
 
@@ -465,11 +465,11 @@ test("nine alerts exist and nobody has empty auth", () => {
 });
 ```
 
-- [ ] **Step 2: Run** `npx vitest run tests/branchiness.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/branchiness.test.ts` — Expected: FAIL
 
 - [ ] **Step 3: Add `scanner-host` to the world if missing; write nine alert files; write `docs/phase-1-scoring.md` with GO rules copied from the spec (≥6/9 usable, ≥6/9 agentic, zero invented Evidence).**
 
-- [ ] **Step 4: Run** `npx vitest run tests/branchiness.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/branchiness.test.ts` — Expected: PASS
 
 - [ ] **Step 5: Commit** `test: add nine test alerts and branchiness check`
 
@@ -479,12 +479,12 @@ test("nine alerts exist and nobody has empty auth", () => {
 
 **Files:**
 - Create: `README.md`
-- Modify: `package.json` scripts `"investigate": "tsx src/cli.ts"`, `"serve": "tsx src/http.ts"`, `"test": "vitest run"`
+- Modify: `package.json` scripts `"investigate": "bun src/cli.ts"`, `"serve": "bun src/http.ts"`, `"test": "bun test"`
 - Create: `var/.gitkeep`, ignore `var/results/` and `var/pi-sessions/` in `.gitignore`
 
 **Interfaces:**
 - Consumes: CLI, MCP config
-- Produces: README with: requires `pi` on PATH and a working `pi auth`; from repo root `npm test` then `npm run investigate testdata/alerts/02.json`; results in `var/results/`; how to score using `docs/phase-1-scoring.md`; explicit non-goals (no production SIEM).
+- Produces: README with: requires `bun` and `pi` on PATH and a working `pi auth`; from repo root `bun test` then `bun src/cli.ts testdata/alerts/02.json`; results in `var/results/`; how to score using `docs/phase-1-scoring.md`; explicit non-goals (no production SIEM).
 
 - [ ] **Step 1: Write a test that package.json scripts exist**
 
@@ -492,17 +492,17 @@ test("nine alerts exist and nobody has empty auth", () => {
 test("package.json has investigate and test scripts", () => {
   const pkg = JSON.parse(readFileSync("package.json", "utf8"));
   expect(pkg.scripts.investigate).toMatch(/cli/);
-  expect(pkg.scripts.test).toMatch(/vitest/);
+  expect(pkg.scripts.test).toMatch(/bun test/);
 });
 ```
 
 in `tests/pkg.test.ts`
 
-- [ ] **Step 2: Run** `npx vitest run tests/pkg.test.ts` — Expected: FAIL if scripts missing
+- [ ] **Step 2: Run** `bun test tests/pkg.test.ts` — Expected: FAIL if scripts missing
 
 - [ ] **Step 3: Add scripts, gitignore, README. Do not call a real model in CI.**
 
-- [ ] **Step 4: Run** `npx vitest run` — Expected: all unit tests PASS
+- [ ] **Step 4: Run** `bun test` — Expected: all unit tests PASS
 
 - [ ] **Step 5: Commit** `docs: add phase 1 smoke instructions`
 

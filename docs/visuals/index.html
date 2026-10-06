@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agentic SOAR visuals</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f4f2;
+      --fg: #1a1a1a;
+      --muted: #5c5c5c;
+      --line: #d4d4d0;
+      --link: #1a1a1a;
+      --node: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121212;
+        --fg: #e8e8e8;
+        --muted: #a3a3a3;
+        --line: #2e2e2e;
+        --link: #e8e8e8;
+        --node: #2a2a2a;
+      }
+    }
+    body {
+      margin: 0 auto;
+      max-width: 52rem;
+      padding: 1.5rem 1.25rem 3rem;
+      font: 16px/1.45 ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+    }
+    h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.35rem; }
+    h2 { font-size: 1.1rem; font-weight: 600; margin: 2.25rem 0 0.75rem; }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    code { font-size: 0.88em; }
+    nav { margin: 1rem 0 1.5rem; }
+    nav a {
+      color: var(--link);
+      margin-right: 1rem;
+      text-underline-offset: 0.2em;
+    }
+    table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      padding: 0.45rem 0.5rem;
+      vertical-align: top;
+    }
+    th { font-weight: 500; color: var(--muted); }
+    tr.miss td:nth-child(2) { color: var(--muted); }
+    .go { font-weight: 600; }
+    .diagram {
+      overflow-x: auto;
+      margin: 1rem 0 0.25rem;
+    }
+    .diagram .mermaid { margin: 0; }
+    .diagram svg { max-width: none; }
+    .wide svg { min-width: 48rem; }
+  </style>
+</head>
+<body>
+  <h1>Agentic SOAR visuals</h1>
+  <p class="muted">Same diagrams as <code>docs/visuals.md</code>. Needs network once for Mermaid. Source of truth for GitLab preview is the markdown file.</p>
+  <nav>
+    <a href="#roadmap">Roadmap</a>
+    <a href="#p1">Phase 1</a>
+    <a href="#code">Codebase</a>
+    <a href="#score">Score</a>
+    <a href="#p3">Phase 3</a>
+  </nav>
+
+  <h2 id="roadmap">Roadmap</h2>
+  <p>Phase 1 is a <span class="go">thin GO</span>. That does not authorize production SIEM.</p>
+  <div class="diagram wide">
+  <pre class="mermaid">
+graph LR
+  P0[Phase 0 Pi as core]
+  P1[Phase 1 isolated POC]
+  P2[Phase 2 evaluation]
+  P3[Phase 3 tool layer]
+  P4[Phase 4 response]
+  P5[Phase 5 scale]
+  P6[Phase 6 knowledge]
+  P0 --> P1
+  P1 --> P2
+  P2 --> P3
+  P3 --> P4
+  P4 --> P5
+  P5 --> P6
+  </pre>
+  </div>
+
+  <h2 id="p1">Phase 1 runtime</h2>
+  <p class="muted">Pi 1.0.4 native MCP, not MCP Gateway. Frozen model: DeepSeek V4.1 Flash via Gerbang.</p>
+  <div class="diagram">
+  <pre class="mermaid">
+graph TB
+  Alert[Test Alert CLI or POST]
+  Host[Bun host]
+  Gerbang[Gerbang proxy]
+  Pi[Pi 1.0.4 RPC child]
+  MCP[stdio MCP direct]
+  World[Test World]
+  Out[result JSON]
+  Alert --> Host
+  Host --> Pi
+  Gerbang --> Pi
+  Pi --> MCP
+  MCP --> World
+  Pi --> Out
+  </pre>
+  </div>
+
+  <h2 id="code">Codebase</h2>
+  <div class="diagram">
+  <pre class="mermaid">
+graph TB
+  subgraph entry
+    cli[cli.ts]
+    http[http.ts]
+  end
+  subgraph investigation
+    inv[investigate.ts]
+    schema[schema.ts]
+    write[write-result.ts]
+  end
+  subgraph piChild
+    host[pi-host.ts]
+    gbg[gerbang.ts]
+    ext[gerbang-dk.mjs]
+  end
+  subgraph telemetry
+    mcp[mcp-server.ts]
+    world[world.ts]
+  end
+  cli --> inv
+  http --> inv
+  inv --> host
+  inv --> schema
+  inv --> write
+  host --> gbg
+  host --> ext
+  mcp --> world
+  </pre>
+  </div>
+
+  <h2 id="score">POC score 2026-10-06</h2>
+  <p>Usable <strong>6/9</strong>. Agentic <strong>6/9</strong>. Invented evidence <strong>0</strong> on finished runs. Bar was ≥6/9.</p>
+  <div class="diagram">
+  <pre class="mermaid">
+graph LR
+  Yes[usable 6]
+  No[cap error 3]
+  </pre>
+  </div>
+  <table>
+    <thead>
+      <tr><th>id</th><th>usable</th><th>outcome</th></tr>
+    </thead>
+    <tbody>
+      <tr class="miss"><td>01</td><td>no</td><td>cap; alice TP path unfinished</td></tr>
+      <tr><td>02</td><td>yes</td><td>FP office VPN</td></tr>
+      <tr><td>03</td><td>yes</td><td>TP auth then process</td></tr>
+      <tr class="miss"><td>04</td><td>no</td><td>cap</td></tr>
+      <tr class="miss"><td>05</td><td>no</td><td>cap; wandered</td></tr>
+      <tr><td>06</td><td>yes</td><td>TP process then auth</td></tr>
+      <tr><td>07</td><td>yes</td><td>BTP scanner</td></tr>
+      <tr><td>08</td><td>yes</td><td>BTP scanner</td></tr>
+      <tr><td>09</td><td>yes</td><td>empty nobody; labeled FP</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">01 / 04 / 05 hit the 15 tool-call cap. Not invented logs.</p>
+
+  <h2 id="p3">Phase 3 target</h2>
+  <p class="muted">MCP Gateway deferred. Secrets stay in the layer.</p>
+  <div class="diagram">
+  <pre class="mermaid">
+graph TB
+  Pi[Pi native MCP]
+  Layer[Security Tool Layer]
+  SM[GCP Secret Manager]
+  APIs[Vendor APIs]
+  Pi --> Layer
+  Layer --> SM
+  Layer --> APIs
+  </pre>
+  </div>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: dark ? "dark" : "neutral",
+      themeVariables: dark
+        ? {
+            background: "#121212",
+            primaryColor: "#2a2a2a",
+            primaryTextColor: "#e8e8e8",
+            primaryBorderColor: "#6a6a6a",
+            lineColor: "#a3a3a3",
+            secondaryColor: "#1c1c1c",
+            tertiaryColor: "#333333",
+            clusterBkg: "#1a1a1a",
+            clusterBorder: "#555555",
+            titleColor: "#e8e8e8",
+            nodeTextColor: "#e8e8e8",
+          }
+        : {
+            primaryTextColor: "#1a1a1a",
+            nodeTextColor: "#1a1a1a",
+          },
+    });
+  </script>
+</body>
+</html>

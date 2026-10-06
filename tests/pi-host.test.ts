@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import {
   PiHostError,
   countToolCall,
+  gerbangDkExtensionPath,
+  lastAssistantTextFromSession,
   piRpcTimeoutMs,
   piSpawnArgs,
   resolvePiCliJs,
@@ -60,17 +66,22 @@ function makeFakeClient(opts: {
 }
 
 describe("pi-host", () => {
-  test("piSpawnArgs disables builtin tools and sets rpc", () => {
+  test("piSpawnArgs disables builtin tools and loads Gerbang dk extension", () => {
     expect(piSpawnArgs({ sessionDir: "/s", systemPromptPath: "/p" })).toEqual([
       "--mode",
       "rpc",
       "--no-builtin-tools",
+      "-e",
+      gerbangDkExtensionPath(),
       "-a",
       "--session-dir",
       "/s",
       "--system-prompt",
       "/p",
     ]);
+    expect(piSpawnArgs({ sessionDir: "/s", systemPromptPath: "/p" })).not.toContain("--no-extensions");
+    expect(gerbangDkExtensionPath().endsWith("extensions/gerbang-dk.mjs")).toBe(true);
+    expect(resolve(gerbangDkExtensionPath())).toBe(gerbangDkExtensionPath());
   });
 
   test("fifteenth tool event calls abort and sets aborted", async () => {
@@ -108,5 +119,28 @@ describe("pi-host", () => {
 
   test("piRpcTimeoutMs is longer than the wall cap", () => {
     expect(piRpcTimeoutMs()).toBeGreaterThan(INVESTIGATION_WALL_MS);
+  });
+
+  test("lastAssistantTextFromSession reads last assistant text parts", () => {
+    const dir = join(tmpdir(), `soar-session-${Date.now()}`);
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, "s.jsonl");
+    writeFileSync(
+      file,
+      [
+        JSON.stringify({ type: "session" }),
+        JSON.stringify({
+          type: "message",
+          message: {
+            role: "assistant",
+            content: [
+              { type: "thinking", thinking: "plan" },
+              { type: "text", text: "```json\n{\"alert_disposition\":\"false_positive\"}\n```" },
+            ],
+          },
+        }),
+      ].join("\n") + "\n",
+    );
+    expect(lastAssistantTextFromSession(file)).toContain("false_positive");
   });
 });

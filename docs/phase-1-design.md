@@ -23,7 +23,7 @@ The integration service receives a Test Alert, starts one Investigation, gives P
 ## What is in
 
 - One Pi RPC child; native JSONL session files for review (no resume on failure)
-- Small integration service (TypeScript `RpcClient` preferred; any JSONL client is valid)
+- Small Bun ≥ 1.4.2 TypeScript integration service (`RpcClient`); Pi child is still the Node `pi` CLI
 - Local/test trigger (HTTP or CLI)
 - One Test World; Telemetry Datasets are queries over it
 - Local stdio MCP, **direct** exposure (Pi’s default MCP exposure is `codemode`, which hides tools from the model)
@@ -70,6 +70,6 @@ Hard cap per Investigation: **10 minutes wall clock or 15 tool calls**, whicheve
 
 A GO does **not** authorize production SIEM or vendor integration.
 
-## Future (unchanged, not designed here)
+## Future (not designed in Phase 1)
 
-Production SIEM → integration → Pi → MCP Gateway → CrowdStrike/Wiz/Coralogix; evaluation program; SOAR control plane; controlled response; scale; knowledge; multi-agent only if single-agent Pi fails.
+Phase 3 target is now Pi → Security Tool Layer → Secret Manager → vendor APIs (`phase3update.md`). MCP Gateway is deferred. Evaluation is still Phase 2. Incident/response/scale/knowledge stay later.

@@ -1,9 +1,12 @@
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import {
+  FROZEN_PI_MODEL,
   INVESTIGATION_MAX_TOOL_CALLS,
   INVESTIGATION_WALL_MS,
 } from "./constants.ts";
 import { RpcClient } from "@earendil-works/pi-coding-agent";
+import { ensureGerbangAdapterEnv, gerbangPiModelsJson } from "./gerbang.ts";
 
 export type PiRunOk = {
   text: string;
@@ -51,11 +54,52 @@ export function resolvePiCliJs(): string {
   return fileURLToPath(new URL("./bundle/cli.js", pkg));
 }
 
+export function gerbangDkExtensionPath(): string {
+  return fileURLToPath(new URL("../extensions/gerbang-dk.mjs", import.meta.url));
+}
+
+export function lastAssistantTextFromSession(sessionFile: string): string {
+  let raw: string;
+  try {
+    raw = readFileSync(sessionFile, "utf8");
+  } catch {
+    return "";
+  }
+  let last = "";
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    let rec: { type?: string; message?: { role?: string; content?: unknown } };
+    try {
+      rec = JSON.parse(line) as typeof rec;
+    } catch {
+      continue;
+    }
+    if (rec.type !== "message" || rec.message?.role !== "assistant") continue;
+    const content = rec.message.content;
+    if (!Array.isArray(content)) continue;
+    const texts: string[] = [];
+    for (const part of content) {
+      if (
+        typeof part === "object" &&
+        part !== null &&
+        (part as { type?: string }).type === "text" &&
+        typeof (part as { text?: string }).text === "string"
+      ) {
+        texts.push((part as { text: string }).text);
+      }
+    }
+    if (texts.length > 0) last = texts.join("\n");
+  }
+  return last;
+}
+
 export function piSpawnArgs(opts: { sessionDir: string; systemPromptPath: string }): string[] {
   return [
     "--mode",
     "rpc",
     "--no-builtin-tools",
+    "-e",
+    gerbangDkExtensionPath(),
     "-a",
     "--session-dir",
     opts.sessionDir,
@@ -127,7 +171,9 @@ export async function runPiInvestigation(
   }
   const state = await client.getState();
   const modelId = state.model?.id ?? "unknown";
-  const text = (await client.getLastAssistantText?.()) ?? "";
+  const fromRpc = (await client.getLastAssistantText?.()) ?? "";
+  const fromSession = state.sessionFile ? lastAssistantTextFromSession(state.sessionFile) : "";
+  const text = fromSession || fromRpc;
   return {
     text,
     modelId,
@@ -148,10 +194,20 @@ async function defaultWait(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 export function createPiClient(opts: { sessionDir: string; systemPromptPath: string }): RpcClientLike {
+  const adapter = ensureGerbangAdapterEnv();
+  const model = process.env.PI_MODEL?.trim() || FROZEN_PI_MODEL;
   const inner = new RpcClient({
     cliPath: resolvePiCliJs(),
+    provider: "dk",
+    model,
     args: piSpawnArgs(opts),
-    ...(process.env.PI_MODEL ? { model: process.env.PI_MODEL } : {}),
+    env: {
+      GERBANG_ADAPTER_BASE_URL: adapter.GERBANG_ADAPTER_BASE_URL,
+      GERBANG_ADAPTER_API_KEY: adapter.GERBANG_ADAPTER_API_KEY,
+      GERBANG_PI_MODELS_JSON: gerbangPiModelsJson(model),
+      PI_OFFLINE: "1",
+      PI_TELEMETRY: "0",
+    },
   });
   return {
     start: () => inner.start(),

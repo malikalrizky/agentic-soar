@@ -69,10 +69,22 @@ const investigationResultSchema = z.object({
   supporting_evidence: z.array(evidenceItemSchema),
   assumptions: z.array(z.string()),
   investigation_steps: z.array(z.string()),
-  entities: z.array(z.string()),
+  entities: z.preprocess(flattenEntities, z.array(z.string())),
   recommended_next_step: z.string(),
   model_id: z.string().optional(),
 });
+
+function flattenEntities(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      item && typeof item === "object" ? JSON.stringify(item) : String(item),
+    );
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k}=${String(v)}`);
+  }
+  return value;
+}
 
 export function extractJsonObject(text: string): unknown {
   const fences = [...text.matchAll(/```json\s*([\s\S]*?)```/g)];

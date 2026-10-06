@@ -44,7 +44,7 @@ PostgreSQL is **not** Pi’s session store. **Confirmed** (files or in-memory). 
 | TypeScript SDK | In-process; MCP **not** loaded unless `createMcpExtension()` | Heavier than we need |
 | Python host | Valid RPC client (docs example); Python is not required | Optional, not preferred |
 
-**Recommended Phase 1 host:** small service (CLI + optional `POST /investigate`) that spawns `pi --mode rpc`, sends the Test Alert as the prompt, counts tool events, aborts on 10 minutes or 15 tool calls, writes the Investigation Result. TypeScript `RpcClient` if the host is Node/Bun. Any language if JSONL is easier.
+**Recommended Phase 1 host:** Bun ≥ 1.4.2 TypeScript service (CLI + optional `POST /investigate`) that spawns Node `pi --mode rpc`, sends the Test Alert as the prompt, counts tool events, aborts on 10 minutes or 15 tool calls, writes the Investigation Result. Use the maintained TypeScript `RpcClient`. Python/JSONL remains valid, not preferred.
 
 Do not pre-fetch Telemetry Dataset results into the prompt. That would make Pi a summarizer.
 
@@ -84,7 +84,7 @@ Data flow:
 - **Phase 5** — Scale (workers, queues, HA) only when required.
 - **Phase 6** — Knowledge retrieval; multi-agent/ADK only if single-agent Pi fails.
 
-Production path (after GO): SIEM → integration → Pi → **MCP Gateway** → vendors.
+Production path after GO was originally: SIEM → integration → Pi → **MCP Gateway** → vendors. **Superseded for Phase 3** by [[phase-3-security-tool-layer]] / [[0005-phase-3-security-tool-layer]]: Pi → Security Tool Layer (stdio MCP) → GCP Secret Manager → Coralogix read. MCP Gateway stays deferred. Pi 1.0.4 already has native MCP; that is not a Gateway.
 
 ## Key architectural decisions
 
@@ -122,6 +122,6 @@ None of these is required by Pi for Phase 1 (**Confirmed** for Postgres/queues; 
 
 4. **GO / NO-GO:** ≥6/9 usable, ≥6/9 agentic, zero invented Evidence. Caps: 10 minutes or 15 tool calls → `error`. Crash → `error`, re-inject. GO does not mean “integrate Coralogix.”
 
-5. **Only if Phase 1 succeeds:** evaluation (Phase 2), then production intake and MCP Gateway, then Incident state, then any remediation behind policy.
+5. **Only if Phase 1 succeeds:** evaluation (Phase 2), then Phase 3 Security Tool Layer (`phase3update.md`), then Incident state, then any remediation behind policy. MCP Gateway is not the next integration path.
 
 **Do not write implementation code until this document is accepted.** First engineering step after acceptance is a smoke: RPC prompt, local MCP `direct` tool, builtin tools off, one fake query, structured result parsed.

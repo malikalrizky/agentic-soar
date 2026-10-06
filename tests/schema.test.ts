@@ -18,6 +18,36 @@ describe("schema", () => {
     expect(result.alert_disposition).toBe("false_positive");
   });
 
+  test("parseInvestigationResult flattens object entities to strings", () => {
+    const result = parseInvestigationResult({
+      alert_disposition: "false_positive",
+      recommended_posture: "no_action",
+      confidence: "medium",
+      summary: "office login",
+      supporting_evidence: [],
+      assumptions: [],
+      investigation_steps: [],
+      entities: { user: "bob", host: "bob-win" },
+      recommended_next_step: "close",
+    }, "frozen-model");
+    expect(result.entities).toEqual(["user=bob", "host=bob-win"]);
+  });
+
+  test("parseInvestigationResult stringifies object items in entities arrays", () => {
+    const result = parseInvestigationResult({
+      alert_disposition: "false_positive",
+      recommended_posture: "no_action",
+      confidence: "medium",
+      summary: "office login",
+      supporting_evidence: [],
+      assumptions: [],
+      investigation_steps: [],
+      entities: [{ user: "bob" }],
+      recommended_next_step: "close",
+    }, "frozen-model");
+    expect(result.entities).toEqual(['{"user":"bob"}']);
+  });
+
   test("parseInvestigationResult throws on invalid alert_disposition", () => {
     expect(() => parseInvestigationResult({ alert_disposition: "maybe", recommended_posture: "no_action", confidence: "low", summary: "x", supporting_evidence: [], assumptions: [], investigation_steps: [], entities: [], recommended_next_step: "x" }, "m")).toThrow();
   });
