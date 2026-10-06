@@ -6,7 +6,7 @@
 
 **Architecture:** A small Bun/TypeScript host spawns one Node `pi --mode rpc` child at a time, never stuffing telemetry into the prompt. A stdio MCP server (also Bun) exposes query tools over one shared Test World (`exposure: direct`). Caps (10 minutes or 15 tool calls) abort the run and emit `alert_disposition: error`. No production systems, no gateway, no database.
 
-**Tech Stack:** Bun ≥ 1.4.2 (host, MCP server, `bun test`), TypeScript, `@modelcontextprotocol/sdk` (stdio MCP), `@earendil-works/pi-coding-agent` (`RpcClient` only — do not embed `createAgentSession`), `Bun.serve` for `POST /investigate`. Pi CLI remains Node.js 22.19+ on PATH.
+**Tech Stack:** Bun ≥ 1.4.2 (host, MCP server, `bun test`), TypeScript, `@modelcontextprotocol/sdk` (stdio MCP), `@earendil-works/pi-coding-agent` (`RpcClient` only: do not embed `createAgentSession`), `Bun.serve` for `POST /investigate`. Pi CLI remains Node.js 22.19+ on PATH.
 
 **Spec:** `docs/architecture-discovery.md` and `docs/phase-1-design.md` (language in `GLOSSARY.md`).
 
@@ -26,26 +26,26 @@
 
 ## File structure
 
-- `src/schema.ts` — types, JSON extract, `parseInvestigationResult`, `errorResult`
-- `src/constants.ts` — `INVESTIGATION_WALL_MS = 600_000`, `INVESTIGATION_MAX_TOOL_CALLS = 15`
-- `src/world.ts` — load `testdata/world.json`, filter queries
-- `src/mcp-server.ts` — stdio MCP wrapping world query handlers
-- `src/pi-host.ts` — spawn/control Pi RPC, count tool events, abort
-- `src/investigate.ts` — alert → prompt → parse → write JSONL
-- `src/cli.ts` — `bun src/cli.ts <alert.json>`
-- `src/http.ts` — `POST /investigate`, 409 if busy
-- `prompts/investigation.md` — SOC investigator system prompt (replace Pi coding default)
-- `testdata/world.json` — one Test World
+- `src/schema.ts`: types, JSON extract, `parseInvestigationResult`, `errorResult`
+- `src/constants.ts`: `INVESTIGATION_WALL_MS = 600_000`, `INVESTIGATION_MAX_TOOL_CALLS = 15`
+- `src/world.ts`: load `testdata/world.json`, filter queries
+- `src/mcp-server.ts`: stdio MCP wrapping world query handlers
+- `src/pi-host.ts`: spawn/control Pi RPC, count tool events, abort
+- `src/investigate.ts`: alert → prompt → parse → write JSONL
+- `src/cli.ts`: `bun src/cli.ts <alert.json>`
+- `src/http.ts`: `POST /investigate`, 409 if busy
+- `prompts/investigation.md`: SOC investigator system prompt (replace Pi coding default)
+- `testdata/world.json`: one Test World
 - `testdata/alerts/01.json` … `09.json`
-- `.pi/mcp.json` — local stdio `telemetry` server, `exposure: direct`
-- `docs/phase-1-scoring.md` — GO sheet for the nine runs
+- `.pi/mcp.json`: local stdio `telemetry` server, `exposure: direct`
+- `docs/phase-1-scoring.md`: GO sheet for the nine runs
 - `tests/*.test.ts`
 
 ## Review Focus
 
 These are pinned to tasks below (not left as “manual only”).
 
-1. Unknown user/host query returns `[]`, not an error — so Pi can switch datasets. Task 2.
+1. Unknown user/host query returns `[]`, not an error: so Pi can switch datasets. Task 2.
 2. Second overlapping `POST /investigate` returns 409, does not start a second Pi. Task 6.
 3. Pi child exit before `agent_settled` writes `errorResult`, does not call resume/continue. Task 4.
 4. Model text that is not a JSON object becomes `alert_disposition: "error"`. Task 1.
@@ -71,7 +71,7 @@ These are pinned to tasks below (not left as “manual only”).
   - `export type InvestigationResult = { alert_disposition: AlertDisposition; recommended_posture: RecommendedPosture; confidence: Confidence; model_id: string; summary: string; supporting_evidence: EvidenceItem[]; assumptions: string[]; investigation_steps: string[]; entities: string[]; recommended_next_step: string }`
   - `export function extractJsonObject(text: string): unknown`
   - `export function parseInvestigationResult(raw: unknown, modelId: string): InvestigationResult`
-  - `export function errorResult(modelId: string, summary: string): InvestigationResult` — disposition `error`, posture `needs_human`, confidence `low`, empty evidence/steps/entities except `summary` and `assumptions: []`
+  - `export function errorResult(modelId: string, summary: string): InvestigationResult`: disposition `error`, posture `needs_human`, confidence `low`, empty evidence/steps/entities except `summary` and `assumptions: []`
 
 Use `import { test, expect } from "bun:test"`.
 
@@ -145,7 +145,7 @@ git commit -m "feat: add investigation result schema"
 **Interfaces:**
 - Consumes: nothing from Task 1
 - Produces:
-  - `export type TestWorld` — loaded JSON
+  - `export type TestWorld`: loaded JSON
   - `export function loadTestWorld(path: string): TestWorld`
   - `export function queryAuthentication(world: TestWorld, filter: { user?: string; ip?: string }): AuthEvent[]`
   - `export function queryEndpoint(world: TestWorld, filter: { host?: string; user?: string }): EndpointEvent[]`
@@ -189,13 +189,13 @@ test("alice process hash aa is not on bob", () => {
 });
 ```
 
-- [ ] **Step 2: Run** `bun test tests/world.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/world.test.ts`: Expected: FAIL
 
 - [ ] **Step 3: Implement `loadTestWorld` and the seven query functions in `src/world.ts`; write `testdata/world.json`**
 
 Do not add per-alert “expected tool path” fields.
 
-- [ ] **Step 4: Run** `bun test tests/world.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/world.test.ts`: Expected: PASS
 
 - [ ] **Step 5: Commit** `feat: add shared test world queries`
 
@@ -212,7 +212,7 @@ Do not add per-alert “expected tool path” fields.
 - Consumes: Task 2 query functions and `loadTestWorld`
 - Produces:
   - `export const TELEMETRY_TOOLS = ["query_authentication","query_endpoint","query_process","query_ip","query_user","query_related_alerts","query_assets"] as const`
-  - `export function handleTelemetryTool(name: string, args: Record<string, unknown>, world: TestWorld): unknown` — dispatches to the matching query; unknown name throws
+  - `export function handleTelemetryTool(name: string, args: Record<string, unknown>, world: TestWorld): unknown`: dispatches to the matching query; unknown name throws
   - stdio MCP in `src/mcp-server.ts` when run as main: load `testdata/world.json` (path from `WORLD_PATH` or default), register the seven tools
   - `.pi/mcp.json`:
 
@@ -243,11 +243,11 @@ test("unknown tool name throws", () => {
 });
 ```
 
-- [ ] **Step 2: Run** `bun test tests/mcp-handlers.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/mcp-handlers.test.ts`: Expected: FAIL
 
 - [ ] **Step 3: Implement `handleTelemetryTool` and MCP stdio `main` using `@modelcontextprotocol/sdk` Server + StdioServerTransport.** Tools are read-only JSON results. No write/isolate tools.
 
-- [ ] **Step 4: Run** `bun test tests/mcp-handlers.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/mcp-handlers.test.ts`: Expected: PASS
 
 - [ ] **Step 5: Commit** `feat: add local telemetry MCP handlers`
 
@@ -260,12 +260,12 @@ test("unknown tool name throws", () => {
 - Test: `tests/pi-host.test.ts`
 
 **Interfaces:**
-- Consumes: `INVESTIGATION_WALL_MS`, `INVESTIGATION_MAX_TOOL_CALLS`, `errorResult` (only if you choose to throw instead — prefer throwing `PiHostError` and let Task 5 map to `errorResult`)
+- Consumes: `INVESTIGATION_WALL_MS`, `INVESTIGATION_MAX_TOOL_CALLS`, `errorResult` (only if you choose to throw instead: prefer throwing `PiHostError` and let Task 5 map to `errorResult`)
 - Produces:
   - `export type PiRunOk = { text: string; modelId: string; sessionFile: string | null; toolCallCount: number; aborted: boolean }`
   - `export class PiHostError extends Error { constructor(message: string, readonly modelId: string) }`
   - `export type RpcClientLike = { start(): Promise<void>; promptAndWait(message: string): Promise<void>; abort(): Promise<void>; getState(): Promise<{ model?: { id?: string }; sessionFile?: string }>; onEvent(handler: (e: { type: string }) => void): () => void; close(): Promise<void> }`
-  - `export function countToolCall(event: { type: string }): boolean` — `true` for event types that mean a tool started (`tool_execution_start` or whatever the installed `RpcClient` emits — **read the installed package types** and pin one type in the test)
+  - `export function countToolCall(event: { type: string }): boolean`: `true` for event types that mean a tool started (`tool_execution_start` or whatever the installed `RpcClient` emits: **read the installed package types** and pin one type in the test)
   - `export async function runPiInvestigation(client: RpcClientLike, prompt: string, now?: () => number, wait?: (ms: number, signal: AbortSignal) => Promise<void>): Promise<PiRunOk>`
     - subscribe before `promptAndWait`
     - abort when `toolCallCount >= 15` or elapsed `>= 600_000`
@@ -303,11 +303,11 @@ test("child failure throws PiHostError and does not call newSession after fail",
 
 `makeFakeClient` is test-local. Emit 15 `{ type: "<pinned tool-start type>" }` then resolve prompt.
 
-- [ ] **Step 2: Run** `bun test tests/pi-host.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/pi-host.test.ts`: Expected: FAIL
 
 - [ ] **Step 3: Implement `src/pi-host.ts`.** Factory that constructs real `RpcClient` from `@earendil-works/pi-coding-agent` with `cliPath: "pi"` and `args: piSpawnArgs(...)` lives here as `export function createPiClient(opts): RpcClientLike` wrapping the real client. If `RpcClient` constructor shape differs, adapt in this one function only.
 
-- [ ] **Step 4: Run** `bun test tests/pi-host.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/pi-host.test.ts`: Expected: PASS
 
 - [ ] **Step 5: Commit** `feat: add Pi RPC host with investigation caps`
 
@@ -322,7 +322,7 @@ test("child failure throws PiHostError and does not call newSession after fail",
 **Interfaces:**
 - Consumes: `TestAlert`, `extractJsonObject`, `parseInvestigationResult`, `errorResult`, `runPiInvestigation`, `PiHostError`, `PiRunOk`
 - Produces:
-  - `export function formatAlertPrompt(alert: TestAlert): string` — JSON of the alert plus instruction to investigate via tools and emit one JSON object matching `InvestigationResult` minus `model_id`
+  - `export function formatAlertPrompt(alert: TestAlert): string`: JSON of the alert plus instruction to investigate via tools and emit one JSON object matching `InvestigationResult` minus `model_id`
   - `export async function runInvestigation(alert: TestAlert, client: RpcClientLike, write: (result: InvestigationResult) => void): Promise<InvestigationResult>`
     - `prompt = formatAlertPrompt(alert)`
     - on `PiHostError` → `errorResult(err.modelId, err.message)`, `write`, return
@@ -358,11 +358,11 @@ The fake must satisfy `runPiInvestigation` **or** `runInvestigation` should acce
 
 Revised produces: `runInvestigation(alert: TestAlert, deps: { runPi: (client: RpcClientLike, prompt: string) => Promise<PiRunOk>; client: RpcClientLike }, write: (result: InvestigationResult) => void): Promise<InvestigationResult>`
 
-- [ ] **Step 2: Run** `bun test tests/investigate.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/investigate.test.ts`: Expected: FAIL
 
 - [ ] **Step 3: Implement `formatAlertPrompt`, `runInvestigation`, and `prompts/investigation.md`**
 
-- [ ] **Step 4: Run** `bun test tests/investigate.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/investigate.test.ts`: Expected: PASS
 
 - [ ] **Step 5: Commit** `feat: orchestrate investigation result parse and errors`
 
@@ -377,8 +377,8 @@ Revised produces: `runInvestigation(alert: TestAlert, deps: { runPi: (client: Rp
 **Interfaces:**
 - Consumes: `runInvestigation`, `TestAlert`, `InvestigationResult`
 - Produces:
-  - `export function resultPath(alertFileOrId: string, outDir: string): string` — `outDir/<basename>.result.json`
-  - `export function writeResultFile(path: string, result: InvestigationResult): void` — pretty JSON, also append one line to `outDir/results.jsonl`
+  - `export function resultPath(alertFileOrId: string, outDir: string): string`: `outDir/<basename>.result.json`
+  - `export function writeResultFile(path: string, result: InvestigationResult): void`: pretty JSON, also append one line to `outDir/results.jsonl`
   - `export function loadAlert(path: string): TestAlert`
   - `export function createInvestigateHandler(opts: { busy: { current: boolean }; run: (alert: TestAlert) => Promise<InvestigationResult> }): (req: Request) => Promise<Response>`
     - only `POST /investigate`
@@ -411,11 +411,11 @@ test("loadAlert reads testdata shape", () => {
 
 `invoke` is a tiny test helper: `Bun.serve({ port: 0, fetch: handler })` then `fetch`, then `server.stop()`.
 
-- [ ] **Step 2: Run** `bun test tests/http.test.ts tests/cli.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/http.test.ts tests/cli.test.ts`: Expected: FAIL
 
 - [ ] **Step 3: Implement write/load helpers, HTTP handler, CLI. `src/http.ts` `main` uses `Bun.serve` on `PORT` or 8787.**
 
-- [ ] **Step 4: Run** `bun test tests/http.test.ts tests/cli.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/http.test.ts tests/cli.test.ts`: Expected: PASS
 
 - [ ] **Step 5: Commit** `feat: add test alert CLI and HTTP trigger`
 
@@ -465,11 +465,11 @@ test("nine alerts exist and nobody has empty auth", () => {
 });
 ```
 
-- [ ] **Step 2: Run** `bun test tests/branchiness.test.ts` — Expected: FAIL
+- [ ] **Step 2: Run** `bun test tests/branchiness.test.ts`: Expected: FAIL
 
 - [ ] **Step 3: Add `scanner-host` to the world if missing; write nine alert files; write `docs/phase-1-scoring.md` with GO rules copied from the spec (≥6/9 usable, ≥6/9 agentic, zero invented Evidence).**
 
-- [ ] **Step 4: Run** `bun test tests/branchiness.test.ts` — Expected: PASS
+- [ ] **Step 4: Run** `bun test tests/branchiness.test.ts`: Expected: PASS
 
 - [ ] **Step 5: Commit** `test: add nine test alerts and branchiness check`
 
@@ -498,11 +498,11 @@ test("package.json has investigate and test scripts", () => {
 
 in `tests/pkg.test.ts`
 
-- [ ] **Step 2: Run** `bun test tests/pkg.test.ts` — Expected: FAIL if scripts missing
+- [ ] **Step 2: Run** `bun test tests/pkg.test.ts`: Expected: FAIL if scripts missing
 
 - [ ] **Step 3: Add scripts, gitignore, README. Do not call a real model in CI.**
 
-- [ ] **Step 4: Run** `bun test` — Expected: all unit tests PASS
+- [ ] **Step 4: Run** `bun test`: Expected: all unit tests PASS
 
 - [ ] **Step 5: Commit** `docs: add phase 1 smoke instructions`
 
@@ -512,5 +512,5 @@ in `tests/pkg.test.ts`
 
 - Spec GO/NO-GO and nine-case corpus: Task 7 + scoring doc; host does not auto-score agentic vs playbook.
 - Smoke with live Pi is documented, not a unit test (needs credentials).
-- `countToolCall` event type is pinned from installed `RpcClient` types in Task 4 — that is the Unknown abort/event name from the spec.
+- `countToolCall` event type is pinned from installed `RpcClient` types in Task 4: that is the Unknown abort/event name from the spec.
 - No production integrations in any task.

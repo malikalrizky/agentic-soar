@@ -2,7 +2,7 @@
 
 Isolated Test Alert → Pi RPC → local telemetry MCP → Investigation Result.
 
-Requires **Bun 1.4.2+**, **Gerbang running** (`gerbang start` / `gerbang login`), and a **Pi CLI that loads `.pi/mcp.json`** (1.0.4+). The host is Bun. `RpcClient` always starts the child with `node <cli.js>`, so `PI_CLI` must be a JavaScript entry, not a bare `pi` name on PATH.
+Requires Bun 1.4.2+, Gerbang running (`gerbang start` / `gerbang login`), and a Pi CLI that loads `.pi/mcp.json` (1.0.4+). The host is Bun. `RpcClient` always starts the child with `node <cli.js>`, so `PI_CLI` must be a JavaScript entry, not a bare `pi` name on PATH.
 
 The frozen model is **DeepSeek V4.1 Flash** via Gerbang (`dk/openrouter/deepseek/deepseek-v4.1-flash`). The host starts `gerbang proxy --application agentic-soar` when adapter env is unset.
 

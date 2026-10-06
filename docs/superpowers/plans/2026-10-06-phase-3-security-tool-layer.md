@@ -25,15 +25,15 @@
 
 ## File structure
 
-- `src/security/constants.ts` — limits and TTL values below
-- `src/security/types.ts` — args, credentials, layer result, `SecretSource`
-- `src/security/redact.ts` — `redactSecrets`, `boundHits`
-- `src/security/audit.ts` — `argHash`, `auditLine`
-- `src/security/secrets.ts` — `MemoryTtlSecretCache`
-- `src/security/coralogix.ts` — `extractHits`, `coralogixDataprimeSearch`
-- `src/security/search.ts` — `parseSearchArgs`, `handleCoralogixSearch`
-- `src/security/gsm.ts` — `GsmSecretSource` wrapping `SecretManagerServiceClient`
-- `src/security-mcp.ts` — stdio MCP `security`, tool `coralogix_search`
+- `src/security/constants.ts`: limits and TTL values below
+- `src/security/types.ts`: args, credentials, layer result, `SecretSource`
+- `src/security/redact.ts`: `redactSecrets`, `boundHits`
+- `src/security/audit.ts`: `argHash`, `auditLine`
+- `src/security/secrets.ts`: `MemoryTtlSecretCache`
+- `src/security/coralogix.ts`: `extractHits`, `coralogixDataprimeSearch`
+- `src/security/search.ts`: `parseSearchArgs`, `handleCoralogixSearch`
+- `src/security/gsm.ts`: `GsmSecretSource` wrapping `SecretManagerServiceClient`
+- `src/security-mcp.ts`: stdio MCP `security`, tool `coralogix_search`
 - Modify: `.pi/mcp.json`, `prompts/investigation.md`, `README.md`
 - Test: `tests/security-*.test.ts`, `tests/mcp-json.test.ts`
 - Do not modify `src/mcp-server.ts` handlers or Phase 1 result schema
@@ -72,11 +72,11 @@ export type LayerResult =
 
 ## Review Focus
 
-1. Missing/invalid `query`/`start`/`end` does not call `SecretSource.get` or `fetch` — Task 5.
-2. HTTP 500 is `{ ok: false, error.code: "vendor_error" }`, not empty hits — Task 5.
-3. Successful hits that contain the API key string are redacted before return — Task 1 + Task 5.
-4. Audit JSON has `argHash` (64 hex) and no `query` field and no API key — Task 2 + Task 5.
-5. Committed `.pi/mcp.json` keeps `telemetry`, adds `security` with `disabled: true` and no `env` keys — Task 6.
+1. Missing/invalid `query`/`start`/`end` does not call `SecretSource.get` or `fetch`: Task 5.
+2. HTTP 500 is `{ ok: false, error.code: "vendor_error" }`, not empty hits: Task 5.
+3. Successful hits that contain the API key string are redacted before return: Task 1 + Task 5.
+4. Audit JSON has `argHash` (64 hex) and no `query` field and no API key: Task 2 + Task 5.
+5. Committed `.pi/mcp.json` keeps `telemetry`, adds `security` with `disabled: true` and no `env` keys: Task 6.
 
 ---
 
@@ -89,8 +89,8 @@ export type LayerResult =
 **Interfaces:**
 - Consumes: constants
 - Produces:
-  - `export function redactSecrets(text: string, extras: string[]): string` — replace each extra substring with `[REDACTED]`; also replace matches of `/(?:api[_-]?key|token|secret)\s*[:=]\s*["']?[A-Za-z0-9_\-]{16,}/gi` with `api_key=[REDACTED]`
-  - `export function boundHits(hits: unknown[], maxHits: number, maxBytes: number): { hits: unknown[]; truncated: boolean }` — cap length to `maxHits`, then drop trailing hits until `JSON.stringify(hits)` length ≤ `maxBytes` (empty array if even one hit is too large)
+  - `export function redactSecrets(text: string, extras: string[]): string`: replace each extra substring with `[REDACTED]`; also replace matches of `/(?:api[_-]?key|token|secret)\s*[:=]\s*["']?[A-Za-z0-9_\-]{16,}/gi` with `api_key=[REDACTED]`
+  - `export function boundHits(hits: unknown[], maxHits: number, maxBytes: number): { hits: unknown[]; truncated: boolean }`: cap length to `maxHits`, then drop trailing hits until `JSON.stringify(hits)` length ≤ `maxBytes` (empty array if even one hit is too large)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -145,9 +145,9 @@ git commit -m "feat: redact and bound security tool payloads"
 **Interfaces:**
 - Consumes: nothing from Task 1 except we will reuse `argHash` in Task 5
 - Produces:
-  - `export function argHash(args: unknown): string` — SHA-256 hex of `JSON.stringify(args)`
+  - `export function argHash(args: unknown): string`: SHA-256 hex of `JSON.stringify(args)`
   - `export type AuditRecord = { tool: string; argHash: string; durationMs: number; status: "ok" | "error"; httpStatus?: number; errorCode?: string }`
-  - `export function auditLine(record: AuditRecord): string` — one JSON object, keys only those fields
+  - `export function auditLine(record: AuditRecord): string`: one JSON object, keys only those fields
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -205,8 +205,8 @@ git commit -m "feat: hash tool args for security audit lines"
 **Interfaces:**
 - Consumes: `SECRET_TTL_MS`, `SecretSource`
 - Produces:
-  - `export function parseCoralogixSecret(payload: string): CoralogixCredentials` — `JSON.parse`; require string `apiKey` and string `endpoint`; throw `Error("invalid secret json")` otherwise
-  - `export class MemoryTtlSecretCache { constructor(source: SecretSource, ttlMs: number, now: () => number); get(): Promise<string>; invalidate(): void }` — no disk I/O
+  - `export function parseCoralogixSecret(payload: string): CoralogixCredentials`: `JSON.parse`; require string `apiKey` and string `endpoint`; throw `Error("invalid secret json")` otherwise
+  - `export class MemoryTtlSecretCache { constructor(source: SecretSource, ttlMs: number, now: () => number); get(): Promise<string>; invalidate(): void }`: no disk I/O
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -264,7 +264,7 @@ git commit -m "feat: cache GSM payloads in memory with TTL"
 **Interfaces:**
 - Consumes: `HTTP_TIMEOUT_MS`, `RETRY_BACKOFF_MS`, `RETRY_AFTER_CAP_MS`, `CoralogixCredentials`, `SearchArgs`
 - Produces:
-  - `export function extractHits(parsed: unknown): unknown[]` — if `parsed` is object and `result.results` is an array, return it; else if `hits` is an array, return it; else return `[parsed]`
+  - `export function extractHits(parsed: unknown): unknown[]`: if `parsed` is object and `result.results` is an array, return it; else if `hits` is an array, return it; else return `[parsed]`
   - `export type VendorResponse = { status: number; bodyText: string }`
   - `export async function coralogixDataprimeSearch(creds: CoralogixCredentials, args: SearchArgs, deps: { fetch: typeof fetch; sleep: (ms: number) => Promise<void> }): Promise<VendorResponse>`
     - `POST` `${creds.endpoint.replace(/\/$/, "")}/api/v1/dataprime/query`
@@ -290,7 +290,7 @@ test("coralogixDataprimeSearch posts Bearer token and retries once on 500", asyn
   const fetchFn = (async (input: RequestInfo) => {
     calls.push(input);
     n += 1;
-    return new Response("{}", { status: n === 1 ? 500 : 200 });
+    return new Response("{}", { status: n === 1 ? 500: 200 });
   }) as typeof fetch;
   let slept = 0;
   const out = await coralogixDataprimeSearch(
@@ -355,14 +355,14 @@ git commit -m "feat: call Coralogix DataPrime with one 5xx retry"
 **Interfaces:**
 - Consumes: Task 1–4 exports, `SearchArgs`, `LayerResult`, `MemoryTtlSecretCache`, `parseCoralogixSecret`
 - Produces:
-  - `export function parseSearchArgs(raw: Record<string, unknown>): SearchArgs` — `query` non-empty string ≤ `MAX_QUERY_CHARS`; `start`/`end` parseable by `Date.parse`; `end > start`; `end - start ≤ MAX_WINDOW_MS`; `limit` optional number, default `DEFAULT_LIMIT`, clamp 1..`MAX_LIMIT`. Throw `Error("invalid_request")` on failure.
+  - `export function parseSearchArgs(raw: Record<string, unknown>): SearchArgs`: `query` non-empty string ≤ `MAX_QUERY_CHARS`; `start`/`end` parseable by `Date.parse`; `end > start`; `end - start ≤ MAX_WINDOW_MS`; `limit` optional number, default `DEFAULT_LIMIT`, clamp 1..`MAX_LIMIT`. Throw `Error("invalid_request")` on failure.
   - `export async function handleCoralogixSearch(raw: Record<string, unknown>, deps: { secrets: MemoryTtlSecretCache; fetch: typeof fetch; sleep: (ms: number) => Promise<void>; audit?: (line: string) => void; now?: () => number }): Promise<LayerResult>`
     - Invalid args: return `{ ok: false, error: { code: "invalid_request", message: "invalid_request" } }` **without** `secrets.get` or `fetch`. Still write an audit line `status: "error", errorCode: "invalid_request"` if `audit` is set.
     - `secrets.get` → `parseCoralogixSecret`; parse throw → `secret_unavailable`
     - `coralogixDataprimeSearch`; `vendor_timeout` throw → `{ ok: false, error.code: "vendor_timeout" }`
     - 401/403: `secrets.invalidate()`, `get` again, one more `coralogixDataprimeSearch`; still 401/403 → `vendor_auth`
     - 429 after retry already done inside HTTP helper; if still 429/5xx → `vendor_error`
-    - 2xx: `JSON.parse` body (`vendor_error` if not JSON); `extractHits`; slice to `args.limit`; `boundHits(..., MAX_LIMIT, MAX_RESULT_BYTES)`; `redactSecrets(JSON.stringify(hits), [creds.apiKey])` then `JSON.parse` back to array (if parse fails, `hits: []` **and** `truncated: true` is wrong — instead return `vendor_error` so we never pretend the redacted payload was empty evidence)
+    - 2xx: `JSON.parse` body (`vendor_error` if not JSON); `extractHits`; slice to `args.limit`; `boundHits(..., MAX_LIMIT, MAX_RESULT_BYTES)`; `redactSecrets(JSON.stringify(hits), [creds.apiKey])` then `JSON.parse` back to array (if parse fails, `hits: []` **and** `truncated: true` is wrong: instead return `vendor_error` so we never pretend the redacted payload was empty evidence)
     - 2xx with zero hits: `{ ok: true, hitCount: 0, hits: [], truncated: false }` is allowed
     - Always `audit` one line on stderr via `deps.audit ?? ((s) => process.stderr.write(s + "\n"))` using `argHash` of parsed args (or raw if parse failed)
     - Redact `message` with `redactSecrets(message, [apiKey if known])`
@@ -466,7 +466,7 @@ git commit -m "feat: fail-closed coralogix_search handler"
 - Produces:
   - `export function gsmResourceName(project: string, secretId: string): string` → `projects/${project}/secrets/${secretId}/versions/latest`
   - `export class GsmSecretSource implements SecretSource { constructor(project: string, secretId: string, access: (name: string) => Promise<string>); get(): Promise<string> }`
-  - `export async function startSecurityMcpServer(deps: { secrets: MemoryTtlSecretCache; fetch: typeof fetch }): Promise<void>` — `McpServer({ name: "security", version: "0.1.0" })`, register **only** `coralogix_search` with zod strings `query`, `start`, `end` and optional `limit` number; handler returns MCP text `JSON.stringify(await handleCoralogixSearch(args, deps))`; `StdioServerTransport`; if `process.argv[1]` is main, build cache from env `TOOL_LAYER_GCP_PROJECT` and `TOOL_LAYER_CORALOGIX_SECRET` via `@google-cloud/secret-manager` `accessSecretVersion`. Missing env → still start, but `get()` rejects so tools return `secret_unavailable` (no world.json fallback).
+  - `export async function startSecurityMcpServer(deps: { secrets: MemoryTtlSecretCache; fetch: typeof fetch }): Promise<void>`: `McpServer({ name: "security", version: "0.1.0" })`, register **only** `coralogix_search` with zod strings `query`, `start`, `end` and optional `limit` number; handler returns MCP text `JSON.stringify(await handleCoralogixSearch(args, deps))`; `StdioServerTransport`; if `process.argv[1]` is main, build cache from env `TOOL_LAYER_GCP_PROJECT` and `TOOL_LAYER_CORALOGIX_SECRET` via `@google-cloud/secret-manager` `accessSecretVersion`. Missing env → still start, but `get()` rejects so tools return `secret_unavailable` (no world.json fallback).
   - `createPiClient` env object remains only `GERBANG_*` and `PI_*` (no code change unless a key slipped in)
 
 `.pi/mcp.json` after edit:
@@ -491,7 +491,7 @@ git commit -m "feat: fail-closed coralogix_search handler"
 
 No `env` block. Prompt: add a bullet that tools are only those listed; Test World tools are `query_*`; if `coralogix_search` appears it is read-only production search (`mcp__security__coralogix_search`) and must be cited as Evidence, never asked for keys.
 
-README: Phase 3 enable = set `security.disabled` to `false`; ADC or GCE SA; GSM secret JSON `{"apiKey":"...","endpoint":"https://api.<region>.coralogix.com"}`; env `TOOL_LAYER_GCP_PROJECT`, `TOOL_LAYER_CORALOGIX_SECRET` on the **MCP process only** (document they inherit from the shell — do not add them in `createPiClient`); `PI_CLI` must be 1.0.4+; same-user GSM caveat one sentence.
+README: Phase 3 enable = set `security.disabled` to `false`; ADC or GCE SA; GSM secret JSON `{"apiKey":"...","endpoint":"https://api.<region>.coralogix.com"}`; env `TOOL_LAYER_GCP_PROJECT`, `TOOL_LAYER_CORALOGIX_SECRET` on the **MCP process only** (document they inherit from the shell: do not add them in `createPiClient`); `PI_CLI` must be 1.0.4+; same-user GSM caveat one sentence.
 
 - [ ] **Step 1: Write the failing tests**
 

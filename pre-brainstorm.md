@@ -42,8 +42,8 @@ The immediate goal is to validate the smallest useful architecture that can answ
 Clearly separate:
 
 ### Current scope
-- Phase 0 — Architecture / Pi integration discovery
-- Phase 1 — SOC investigation POC
+- Phase 0: Architecture / Pi integration discovery
+- Phase 1: SOC investigation POC
 
 ### Future vision
 - Phase 2 onward
@@ -54,7 +54,7 @@ The project must have explicit **GO / NO-GO gates** so that we can stop if Pi do
 
 ---
 
-# 3. Phase 0 — Pi Integration Discovery
+# 3. Phase 0: Pi Integration Discovery
 
 First research Pi's actual current capabilities using authoritative sources such as its official repository, documentation, source code, SDK documentation, RPC documentation, and relevant issues/discussions where necessary.
 
@@ -179,7 +179,7 @@ For Phase 1, optimize for **learning speed and architectural simplicity**, not p
 
 ---
 
-# 5. Phase 1 — SOC Investigation POC
+# 5. Phase 1: SOC Investigation POC
 
 The Phase 1 POC should validate this flow:
 
@@ -319,9 +319,7 @@ At minimum:
 - Resource consumption is understood.
 - Failures can be detected and handled at a basic level.
 
-Do not turn Phase 1 into a full production-readiness or model-evaluation program.
-
-A more comprehensive evaluation framework should be a future phase.
+Do not turn Phase 1 into a production-readiness or model-evaluation program. That work is Phase 2 (accuracy, evidence quality, cost, analyst agreement).
 
 ---
 
@@ -348,11 +346,11 @@ The purpose of Phase 1 is to validate the hypothesis.
 
 ---
 
-# 10. Future Architecture — High Level Only
+# 10. Future Architecture: High Level Only
 
 If Phase 1 succeeds, describe the possible future roadmap at a high level.
 
-### Phase 2 — Agent Evaluation
+### Phase 2: Agent Evaluation
 
 Evaluate:
 
@@ -370,7 +368,7 @@ Evaluate:
 
 ---
 
-### Phase 3 — Real integrations + Security Tool Layer
+### Phase 3: Real integrations + Security Tool Layer
 
 Phase 1 and Phase 2 stay as written. Phase 3 is **not** a control plane or a second SOAR.
 
@@ -419,7 +417,7 @@ Durable incident state (lifecycle, escalation, human approval, investigation his
 
 ---
 
-### Phase 4 — Controlled Automated Response
+### Phase 4: Controlled Automated Response
 
 Introduce carefully controlled remediation.
 
@@ -446,7 +444,7 @@ Start with low-risk actions and require appropriate human/policy controls.
 
 ---
 
-### Phase 5 — Production & Scale
+### Phase 5: Production & Scale
 
 Evaluate:
 
@@ -467,7 +465,7 @@ Only introduce distributed infrastructure when justified by actual requirements.
 
 ---
 
-### Phase 6 — Knowledge & Advanced Agent Architecture
+### Phase 6: Knowledge & Advanced Agent Architecture
 
 Treat long-term knowledge management as a separate architectural problem.
 
@@ -513,7 +511,7 @@ Use these principles throughout the design:
 Do not unnecessarily introduce another agent framework.
 
 ### 2. MCP is the security capability boundary
-Pi should eventually access security systems through the internal MCP gateway rather than directly owning credentials for every security platform.
+Pi should access security systems through a Security Tool Layer on native MCP (credentials in that process / Secret Manager), not by holding vendor keys in Pi. MCP Gateway stays deferred.
 
 ### 3. Keep the integration layer small
 The integration service should connect SIEM events to Pi without becoming another workflow engine.
@@ -552,10 +550,10 @@ Prioritize:
 
 For every important capability, clearly distinguish:
 
-- **Confirmed** — directly supported by authoritative documentation/source.
-- **Inferred** — reasonable conclusion from the implementation/documentation.
-- **Assumption** — proposed architecture that still needs validation.
-- **Unknown** — insufficient evidence; requires testing.
+- **Confirmed**: directly supported by authoritative documentation/source.
+- **Inferred**: reasonable conclusion from the implementation/documentation.
+- **Assumption**: proposed architecture that still needs validation.
+- **Unknown**: insufficient evidence; requires testing.
 
 Do not invent APIs, SDK methods, RPC endpoints, session behavior, MCP capabilities, or persistence mechanisms.
 

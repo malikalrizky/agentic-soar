@@ -1,4 +1,4 @@
-# Phase 3 — Security Tool Layer (design)
+# Phase 3: Security Tool Layer (design)
 
 **Status:** accepted. Not an implementation plan. Not a production-SIEM authorization. ADR: [[0005-phase-3-security-tool-layer]].
 
@@ -63,7 +63,7 @@ Pi never gets Coralogix keys, never calls Secret Manager, never speaks vendor HT
 
 ## 3. Pi integration approach
 
-**KEEP:** Phase 1 control plane — Bun `RpcClient`, `pi --mode rpc`, `--no-builtin-tools`, `-a` for project MCP, `exposure: direct`.
+**KEEP:** Phase 1 control plane: Bun `RpcClient`, `pi --mode rpc`, `--no-builtin-tools`, `-a` for project MCP, `exposure: direct`.
 
 **Tool plane:** native MCP stdio. New `.pi/mcp.json` server (name `security` or similar), `command`/`args` to a **new** process in this repo. Not `src/mcp-server.ts`. Not in-process `pi.registerTool()` for vendor calls (handler would share the Pi process). Not SDK `createMcpExtension()` (RPC CLI already loads `.pi/mcp.json`). Not HTTP/gRPC for the minimum.
 

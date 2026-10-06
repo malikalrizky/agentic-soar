@@ -1,4 +1,4 @@
-# Agentic SOAR — architecture discovery
+# Agentic SOAR: architecture discovery
 
 Sources for Pi: [earendil-works/pi](https://github.com/earendil-works/pi) README, `packages/coding-agent/docs/{rpc,sdk,cli,cli-integration,mcp,sessions}.md` (main, fetched 2026-10-06). Evidence labels: **Confirmed** / **Inferred** / **Assumption** / **Unknown**.
 
@@ -14,9 +14,9 @@ Phase 1 is small so a NO-GO is cheap.
 
 ## Current scope
 
-**Phase 0** — Verify Pi runtime, RPC/SDK, sessions, MCP, and the simplest host. Done below from docs; a few items stay **Unknown** until a smoke run.
+**Phase 0**: Verify Pi runtime, RPC/SDK, sessions, MCP, and the simplest host. Done below from docs; a few items stay **Unknown** until a smoke run.
 
-**Phase 1** — Nine Test Alerts against one Test World. GO if Pi is a useful investigation engine on that corpus. GO does not authorize production integration.
+**Phase 1**: Nine Test Alerts against one Test World. GO if Pi is a useful investigation engine on that corpus. GO does not authorize production integration.
 
 ## Phase 0 findings
 
@@ -78,11 +78,11 @@ Data flow:
 
 ## Future vision (high level only)
 
-- **Phase 2** — Evaluation program (accuracy, hallucinations, cost, analyst agreement).
-- **Phase 3** — SOAR control plane (Incident, audit, retries). Pi session state ≠ Incident state.
-- **Phase 4** — Controlled response: reasoning ≠ authorization ≠ action.
-- **Phase 5** — Scale (workers, queues, HA) only when required.
-- **Phase 6** — Knowledge retrieval; multi-agent/ADK only if single-agent Pi fails.
+- **Phase 2**: Evaluation program (accuracy, hallucinations, cost, analyst agreement).
+- **Phase 3**: Security Tool Layer (stdio MCP, Secret Manager, Coralogix read). Incident/control plane stays later. Pi session state is not Incident state.
+- **Phase 4**: Controlled response: reasoning ≠ authorization ≠ action.
+- **Phase 5**: Scale (workers, queues, HA) only when required.
+- **Phase 6**: Knowledge retrieval; multi-agent/ADK only if single-agent Pi fails.
 
 Production path after GO was originally: SIEM → integration → Pi → **MCP Gateway** → vendors. **Superseded for Phase 3** by [[phase-3-security-tool-layer]] / [[0005-phase-3-security-tool-layer]]: Pi → Security Tool Layer (stdio MCP) → GCP Secret Manager → Coralogix read. MCP Gateway stays deferred. Pi 1.0.4 already has native MCP; that is not a Gateway.
 
@@ -98,7 +98,7 @@ Production path after GO was originally: SIEM → integration → Pi → **MCP G
 
 ## Risks / unknowns
 
-- **Unknown:** exact abort RPC command name/behavior under our version — verify with `pi --help` / rpc-commands on the installed binary.
+- **Unknown:** exact abort RPC command name/behavior under our version: verify with `pi --help` / rpc-commands on the installed binary.
 - **Unknown:** whether `direct` MCP tools + `--no-builtin-tools` is enough for the model to call only telemetry tools.
 - **Unknown:** structured-output reliability; we may need a second “format this transcript” prompt. That is still not a playbook of **investigation** steps.
 - **Assumption:** a shared Test World can be written so the second query is not obvious from the Alert title.

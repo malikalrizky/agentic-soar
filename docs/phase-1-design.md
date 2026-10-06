@@ -27,7 +27,7 @@ The integration service receives a Test Alert, starts one Investigation, gives P
 - Local/test trigger (HTTP or CLI)
 - One Test World; Telemetry Datasets are queries over it
 - Local stdio MCP, **direct** exposure (Pi’s default MCP exposure is `codemode`, which hides tools from the model)
-- Built-in `bash` / `edit` / `write` disabled — Pi has no permission sandbox
+- Built-in `bash` / `edit` / `write` disabled: Pi has no permission sandbox
 - Unattended Investigation; read-only; no containment
 
 ## What is out
