@@ -199,7 +199,7 @@ Do not build a policy engine in Phase 3.
 - Fail closed; never fake empty Evidence.
 - Read-only first.
 
-**CHANGE** (from older discovery / `phase3update.md` drafts)
+**CHANGE** (from older discovery drafts)
 
 - Phase 3 path is Tool Layer + SM, **not** MCP Gateway.
 - “Do not assume Pi has MCP” is false for 1.0.4.
