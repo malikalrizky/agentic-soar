@@ -3,5 +3,7 @@ dist/
 var/results/
 var/pi-sessions/
 .superpowers/
-.cursor/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 

@@ -1,0 +1,36 @@
+---
+description: Deep modules for Investigation, Pi host, Test World, and adapters
+globs: src/**/*.ts,tests/**/*.ts,extensions/**/*.mjs
+alwaysApply: false
+---
+
+# Deep modules
+
+Put a lot of behaviour behind a small **interface**. Callers and tests cross the same **seam**. Domain names live in `GLOSSARY.md`; Pi, MCP, RPC, and files do not.
+
+Use these words: **module**, **interface**, **implementation**, **depth**, **seam**, **adapter**, **locality**. Do not say component, service, API, or boundary.
+
+## Checks
+
+- **Deletion test**: if deleting the module just moves lines, it is shallow — do not add it.
+- **One adapter is hypothetical; two is real.** Do not inject a port unless production and tests (or Phase 3 vs Test World) actually differ.
+- Do not export internals so tests can reach them. If a test must see RPC events, that seam stays inside `pi-host`.
+- Prefer deepening an existing module over a new pass-through file.
+
+## This repo
+
+- **Investigation** (`runInvestigation`): one Test Alert + persist key → Investigation Result and files. CLI and HTTP are adapters. Do not add Drive to the glossary.
+- **Pi run** (`runPiInvestigation(prompt)`): owns spawn, caps, session text, close. RPC stays in the implementation (ADR-0004).
+- HTTP 409 busy stays in the HTTP adapter, not Investigation.
+- Persist key is an id from the caller (CLI basename, HTTP `type-timestamp`).
+- Phase 3 Security Tool Layer must not share Tool names with Test World queries (ADR-0005).
+
+```typescript
+// bad — caller learns spawn and RPC
+const client = createPiClient(...)
+await runPiInvestigation(client, prompt)
+await client.close()
+
+// good
+await runPiInvestigation(prompt)
+```
