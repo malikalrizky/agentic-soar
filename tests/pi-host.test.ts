@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { PiHostError, piSpawnArgs, runPiInvestigation, type RpcClientLike } from "../src/pi-host.ts";
 
 const TOOL_START = "tool_execution_start";

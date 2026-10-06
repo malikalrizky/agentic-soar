@@ -1,5 +1,5 @@
 import { readdirSync } from "node:fs";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { loadTestWorld, queryAuthentication } from "../src/world.ts";
 
 describe("branchiness", () => {

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { errorResult, type InvestigationResult } from "../src/schema.ts";
 import { runInvestigation } from "../src/investigate.ts";
 import type { PiRunOk } from "../src/pi-host.ts";

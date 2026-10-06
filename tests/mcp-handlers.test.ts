@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { handleTelemetryTool } from "../src/mcp-server.ts";
 import { loadTestWorld } from "../src/world.ts";
 

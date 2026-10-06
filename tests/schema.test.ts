@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { errorResult, extractJsonObject, parseInvestigationResult } from "../src/schema.ts";
 
 describe("schema", () => {

@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { errorResult } from "../src/schema.ts";
 import { createInvestigateHandler } from "../src/http.ts";
 import { loadAlert, resultPath, writeResultFile } from "../src/write-result.ts";

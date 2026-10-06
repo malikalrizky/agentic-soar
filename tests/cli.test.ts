@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { resultPath } from "../src/write-result.ts";
 
 describe("cli helpers", () => {
