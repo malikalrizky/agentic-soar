@@ -5,9 +5,11 @@ import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { handleCoralogixSearch, type SecurityDeps } from "./security.ts";
 
-export function gsmResourceName(project: string, secretId: string): string {
+function gsmResourceName(project: string, secretId: string): string {
   return `projects/${project}/secrets/${secretId}/versions/latest`;
 }
+
+const gsmClient = new SecretManagerServiceClient();
 
 async function gsmGetSecret(): Promise<string> {
   const project = process.env.TOOL_LAYER_GCP_PROJECT?.trim();
@@ -15,8 +17,7 @@ async function gsmGetSecret(): Promise<string> {
   if (!project || !secretId) {
     throw new Error("TOOL_LAYER_GCP_PROJECT and TOOL_LAYER_CORALOGIX_SECRET required");
   }
-  const client = new SecretManagerServiceClient();
-  const [version] = await client.accessSecretVersion({
+  const [version] = await gsmClient.accessSecretVersion({
     name: gsmResourceName(project, secretId),
   });
   const data = version.payload?.data;
@@ -42,7 +43,10 @@ export async function startSecurityMcpServer(deps: SecurityDeps): Promise<void> 
     },
     async (args) => {
       const result = await handleCoralogixSearch(args as Record<string, unknown>, deps);
-      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result) }],
+        isError: !result.ok,
+      };
     },
   );
   const transport = new StdioServerTransport();

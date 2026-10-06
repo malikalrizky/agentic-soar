@@ -8,6 +8,10 @@ const ARGS = {
 };
 const SECRET = `{"apiKey":"cx-secret-key-value","endpoint":"https://api.eu2.coralogix.com"}`;
 
+function asFetch(fn: (...args: never[]) => Promise<Response>): typeof fetch {
+  return fn as unknown as typeof fetch;
+}
+
 test("invalid args do not fetch secret or vendor", async () => {
   let gets = 0;
   let fetches = 0;
@@ -18,10 +22,11 @@ test("invalid args do not fetch secret or vendor", async () => {
         gets += 1;
         return SECRET;
       },
-      fetch: (async () => {
+      fetch: asFetch(async () => {
         fetches += 1;
         return new Response("{}");
-      }) as typeof fetch,
+      }),
+      audit: () => {},
     },
   );
   expect(out).toEqual({
@@ -35,8 +40,9 @@ test("invalid args do not fetch secret or vendor", async () => {
 test("HTTP 500 is vendor_error not empty hits", async () => {
   const out = await handleCoralogixSearch(ARGS, {
     getSecret: async () => SECRET,
-    fetch: (async () => new Response("nope", { status: 500 })) as typeof fetch,
+    fetch: asFetch(async () => new Response("nope", { status: 500 })),
     sleep: async () => {},
+    audit: () => {},
   });
   expect(out.ok).toBe(false);
   if (!out.ok) expect(out.error.code).toBe("vendor_error");
@@ -46,10 +52,12 @@ test("ok hits redact the api key and audit has no query", async () => {
   const lines: string[] = [];
   const out = await handleCoralogixSearch(ARGS, {
     getSecret: async () => SECRET,
-    fetch: (async () =>
-      new Response(JSON.stringify({ result: { results: [{ msg: "cx-secret-key-value" }] } }), {
-        status: 200,
-      })) as typeof fetch,
+    fetch: asFetch(
+      async () =>
+        new Response(JSON.stringify({ result: { results: [{ msg: "cx-secret-key-value" }] } }), {
+          status: 200,
+        }),
+    ),
     audit: (s) => lines.push(s),
   });
   expect(out.ok).toBe(true);
@@ -58,16 +66,19 @@ test("ok hits redact the api key and audit has no query", async () => {
     expect(out.hitCount).toBe(1);
   }
   expect(lines).toHaveLength(1);
-  expect(lines[0]).not.toContain("source logs");
-  expect(lines[0]).not.toContain("cx-secret-key-value");
-  expect(JSON.parse(lines[0]).argHash).toMatch(/^[0-9a-f]{64}$/);
+  const line = lines[0]!;
+  expect(line).not.toContain("source logs");
+  expect(line).not.toContain("cx-secret-key-value");
+  expect(JSON.parse(line).argHash).toMatch(/^[0-9a-f]{64}$/);
 });
 
 test("zero hits on 200 is ok not an error", async () => {
   const out = await handleCoralogixSearch(ARGS, {
     getSecret: async () => SECRET,
-    fetch: (async () =>
-      new Response(JSON.stringify({ result: { results: [] } }), { status: 200 })) as typeof fetch,
+    fetch: asFetch(
+      async () => new Response(JSON.stringify({ result: { results: [] } }), { status: 200 }),
+    ),
+    audit: () => {},
   });
   expect(out).toEqual({ ok: true, hitCount: 0, hits: [], truncated: false });
 });
@@ -80,9 +91,11 @@ test("getSecret is reused until TTL then refetched", async () => {
       gets += 1;
       return SECRET;
     },
-    fetch: (async () =>
-      new Response(JSON.stringify({ result: { results: [] } }), { status: 200 })) as typeof fetch,
+    fetch: asFetch(
+      async () => new Response(JSON.stringify({ result: { results: [] } }), { status: 200 }),
+    ),
     now: () => t,
+    audit: () => {},
   };
   await handleCoralogixSearch(ARGS, deps);
   await handleCoralogixSearch(ARGS, deps);
@@ -100,12 +113,13 @@ test("401 invalidates cache and refetches secret once", async () => {
       gets += 1;
       return SECRET;
     },
-    fetch: (async () => {
+    fetch: asFetch(async () => {
       n += 1;
       return n === 1
         ? new Response("no", { status: 401 })
         : new Response(JSON.stringify({ result: { results: [] } }), { status: 200 });
-    }) as typeof fetch,
+    }),
+    audit: () => {},
   });
   expect(out.ok).toBe(true);
   expect(gets).toBe(2);
@@ -117,13 +131,14 @@ test("500 retries once then vendor_error", async () => {
   let slept = 0;
   const out = await handleCoralogixSearch(ARGS, {
     getSecret: async () => SECRET,
-    fetch: (async () => {
+    fetch: asFetch(async () => {
       n += 1;
       return new Response("x", { status: 500 });
-    }) as typeof fetch,
+    }),
     sleep: async (ms) => {
       slept = ms;
     },
+    audit: () => {},
   });
   expect(out.ok).toBe(false);
   if (!out.ok) expect(out.error.code).toBe("vendor_error");
@@ -135,13 +150,14 @@ test("401 is not 5xx retry; second 401 is vendor_auth", async () => {
   let n = 0;
   const out = await handleCoralogixSearch(ARGS, {
     getSecret: async () => SECRET,
-    fetch: (async () => {
+    fetch: asFetch(async () => {
       n += 1;
       return new Response("no", { status: 401 });
-    }) as typeof fetch,
+    }),
     sleep: async () => {
       throw new Error("no 5xx sleep on 401");
     },
+    audit: () => {},
   });
   expect(out.ok).toBe(false);
   if (!out.ok) expect(out.error.code).toBe("vendor_auth");
@@ -151,9 +167,10 @@ test("401 is not 5xx retry; second 401 is vendor_auth", async () => {
 test("fetch throw is vendor_timeout", async () => {
   const out = await handleCoralogixSearch(ARGS, {
     getSecret: async () => SECRET,
-    fetch: (async () => {
+    fetch: asFetch(async () => {
       throw new Error("network down");
-    }) as typeof fetch,
+    }),
+    audit: () => {},
   });
   expect(out.ok).toBe(false);
   if (!out.ok) expect(out.error.code).toBe("vendor_timeout");
@@ -164,7 +181,8 @@ test("getSecret throw is secret_unavailable", async () => {
     getSecret: async () => {
       throw new Error("gsm down");
     },
-    fetch: (async () => new Response("{}")) as typeof fetch,
+    fetch: asFetch(async () => new Response("{}")),
+    audit: () => {},
   });
   expect(out.ok).toBe(false);
   if (!out.ok) expect(out.error.code).toBe("secret_unavailable");
@@ -173,7 +191,72 @@ test("getSecret throw is secret_unavailable", async () => {
 test("non-JSON secret payload is secret_unavailable", async () => {
   const out = await handleCoralogixSearch(ARGS, {
     getSecret: async () => "not-json",
-    fetch: (async () => new Response("{}")) as typeof fetch,
+    fetch: asFetch(async () => new Response("{}")),
+    audit: () => {},
+  });
+  expect(out.ok).toBe(false);
+  if (!out.ok) expect(out.error.code).toBe("secret_unavailable");
+});
+
+test("truncated is true when vendor returns more hits than limit", async () => {
+  const many = Array.from({ length: 50 }, (_, i) => ({ i }));
+  const out = await handleCoralogixSearch(
+    { ...ARGS, limit: 2 },
+    {
+      getSecret: async () => SECRET,
+      fetch: asFetch(
+        async () =>
+          new Response(JSON.stringify({ result: { results: many } }), { status: 200 }),
+      ),
+      audit: () => {},
+    },
+  );
+  expect(out.ok).toBe(true);
+  if (out.ok) {
+    expect(out.hits).toHaveLength(2);
+    expect(out.truncated).toBe(true);
+  }
+});
+
+test("JSON field api_key values are redacted", async () => {
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => SECRET,
+    fetch: asFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            result: { results: [{ api_key: "AKIAIOSFODNN7EXAMPLEKEY123" }] },
+          }),
+          { status: 200 },
+        ),
+    ),
+    audit: () => {},
+  });
+  expect(out.ok).toBe(true);
+  if (out.ok) {
+    expect(JSON.stringify(out.hits)).not.toContain("AKIAIOSFODNN7EXAMPLEKEY123");
+  }
+});
+
+test("200 body with error key is vendor_error not a hit", async () => {
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => SECRET,
+    fetch: asFetch(
+      async () =>
+        new Response(JSON.stringify({ error: "query syntax error" }), { status: 200 }),
+    ),
+    audit: () => {},
+  });
+  expect(out.ok).toBe(false);
+  if (!out.ok) expect(out.error.code).toBe("vendor_error");
+});
+
+test("hung getSecret becomes secret_unavailable", async () => {
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: () => new Promise(() => {}),
+    fetch: asFetch(async () => new Response("{}")),
+    secretTimeoutMs: 20,
+    audit: () => {},
   });
   expect(out.ok).toBe(false);
   if (!out.ok) expect(out.error.code).toBe("secret_unavailable");

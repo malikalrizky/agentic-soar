@@ -20,13 +20,14 @@ function invalidateSecretCache(getSecret: () => Promise<string>): void {
 async function getCachedSecret(
   getSecret: () => Promise<string>,
   now: () => number,
+  timeoutMs: number,
 ): Promise<string> {
   const t = now();
   const hit = secretCaches.get(getSecret);
   if (hit !== undefined && t - hit.fetchedAt < SECRET_TTL_MS) {
     return hit.value;
   }
-  const value = await getSecret();
+  const value = await getSecretWithTimeout(getSecret, timeoutMs);
   secretCaches.set(getSecret, { value, fetchedAt: t });
   return value;
 }
@@ -48,6 +49,8 @@ export type SecurityDeps = {
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
   audit?: (line: string) => void;
+  /** Override for tests; default matches vendor HTTP timeout. */
+  secretTimeoutMs?: number;
 };
 
 type SearchArgs = { query: string; start: string; end: string; limit: number };
@@ -59,10 +62,15 @@ function redactSecrets(text: string, extras: string[]): string {
     if (!extra) continue;
     out = out.split(extra).join("[REDACTED]");
   }
-  return out.replace(
+  out = out.replace(
+    /("(?:api[_-]?key|token|secret)"\s*:\s*)"(?:[^"\\]|\\.)*"/gi,
+    '$1"[REDACTED]"',
+  );
+  out = out.replace(
     /(?:api[_-]?key|token|secret)\s*[:=]\s*["']?[A-Za-z0-9_\-]{16,}/gi,
     "api_key=[REDACTED]",
   );
+  return out;
 }
 
 function boundHits(
@@ -141,13 +149,35 @@ function parseCoralogixSecret(payload: string): CoralogixCredentials {
   };
 }
 
-function extractHits(parsed: unknown): unknown[] {
+function extractHits(parsed: unknown): unknown[] | "vendor_error" {
   if (typeof parsed === "object" && parsed !== null) {
-    const obj = parsed as { result?: { results?: unknown }; hits?: unknown };
+    const obj = parsed as {
+      result?: { results?: unknown };
+      hits?: unknown;
+      error?: unknown;
+    };
     if (Array.isArray(obj.result?.results)) return obj.result.results as unknown[];
     if (Array.isArray(obj.hits)) return obj.hits as unknown[];
+    if (obj.error !== undefined) return "vendor_error";
   }
   return [parsed];
+}
+
+async function getSecretWithTimeout(
+  getSecret: () => Promise<string>,
+  timeoutMs: number,
+): Promise<string> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      getSecret(),
+      new Promise<string>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("secret_unavailable")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 async function sleepMs(
@@ -253,7 +283,11 @@ export async function handleCoralogixSearch(
   async function loadCreds(): Promise<CoralogixCredentials | LayerResult> {
     let secretPayload: string;
     try {
-      secretPayload = await getCachedSecret(deps.getSecret, now);
+      secretPayload = await getCachedSecret(
+        deps.getSecret,
+        now,
+        deps.secretTimeoutMs ?? HTTP_TIMEOUT_MS,
+      );
     } catch {
       return fail("secret_unavailable", "secret_unavailable", []);
     }
@@ -325,8 +359,11 @@ export async function handleCoralogixSearch(
     return finish(fail("vendor_error", "vendor_error", [apiKey]), vendor.status);
   }
 
-  const hits = extractHits(parsed).slice(0, args.limit);
-  const bounded = boundHits(hits, MAX_LIMIT, MAX_RESULT_BYTES);
+  const extracted = extractHits(parsed);
+  if (extracted === "vendor_error") {
+    return finish(fail("vendor_error", "vendor_error", [apiKey]), vendor.status);
+  }
+  const bounded = boundHits(extracted, args.limit, MAX_RESULT_BYTES);
   const redactedText = redactSecrets(JSON.stringify(bounded.hits), [apiKey]);
   let redactedHits: unknown[];
   try {
