@@ -15,18 +15,18 @@ export function createInvestigateHandler(opts: {
     if (opts.busy.current) {
       return Response.json({ error: "investigation_in_progress" }, { status: 409 });
     }
-    let parsed: unknown;
-    try {
-      parsed = await req.json();
-    } catch {
-      return Response.json({ error: "invalid_json" }, { status: 400 });
-    }
-    const alert = (parsed as { alert?: TestAlert } | null)?.alert;
-    if (!alert || typeof alert.type !== "string" || typeof alert.timestamp !== "string") {
-      return Response.json({ error: "invalid_alert" }, { status: 400 });
-    }
     opts.busy.current = true;
     try {
+      let parsed: unknown;
+      try {
+        parsed = await req.json();
+      } catch {
+        return Response.json({ error: "invalid_json" }, { status: 400 });
+      }
+      const alert = (parsed as { alert?: TestAlert } | null)?.alert;
+      if (!alert || typeof alert.type !== "string" || typeof alert.timestamp !== "string") {
+        return Response.json({ error: "invalid_alert" }, { status: 400 });
+      }
       const result = await opts.run(alert);
       return Response.json({ result });
     } catch (err) {
@@ -49,8 +49,8 @@ export async function startHttpServer(port = Number(process.env.PORT ?? 8787)): 
         systemPromptPath: "prompts/investigation.md",
       });
       try {
-        return await runInvestigation(alert, { runPi: runPiInvestigation, client }, (result) => {
-          writeResultFile(resultPath(`${alert.type}-${alert.timestamp}.json`, "var/results"), result);
+        return await runInvestigation(alert, { runPi: runPiInvestigation, client }, (result, sessionFile) => {
+          writeResultFile(resultPath(`${alert.type}-${alert.timestamp}.json`, "var/results"), result, sessionFile);
         });
       } finally {
         await client.close();

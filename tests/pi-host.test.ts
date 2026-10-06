@@ -1,9 +1,24 @@
 import { describe, expect, test } from "bun:test";
-import { PiHostError, piSpawnArgs, runPiInvestigation, type RpcClientLike } from "../src/pi-host.ts";
+import {
+  PiHostError,
+  countToolCall,
+  piRpcTimeoutMs,
+  piSpawnArgs,
+  resolvePiCliJs,
+  runPiInvestigation,
+  type RpcClientLike,
+} from "../src/pi-host.ts";
+import { INVESTIGATION_WALL_MS } from "../src/constants.ts";
 
 const TOOL_START = "tool_execution_start";
 
-function makeFakeClient(opts: { toolEvents?: number; text?: string; fail?: boolean }): RpcClientLike & {
+function makeFakeClient(opts: {
+  toolEvents?: number;
+  nestedToolcallEvents?: number;
+  text?: string;
+  fail?: boolean;
+  startFail?: boolean;
+}): RpcClientLike & {
   abortCalls: number;
   continueCalls: number;
 } {
@@ -13,9 +28,14 @@ function makeFakeClient(opts: { toolEvents?: number; text?: string; fail?: boole
   const client: RpcClientLike & { abortCalls: number; continueCalls: number } = {
     abortCalls: 0,
     continueCalls: 0,
-    async start() {},
+    async start() {
+      if (opts.startFail) throw new Error("ENOENT pi");
+    },
     async promptAndWait() {
       if (opts.fail) throw new Error("child exited");
+      for (let i = 0; i < (opts.nestedToolcallEvents ?? 0); i++) {
+        handler?.({ type: "message_update", assistantMessageEvent: { type: "toolcall_start" } } as { type: string });
+      }
       for (let i = 0; i < (opts.toolEvents ?? 0); i++) {
         handler?.({ type: TOOL_START });
       }
@@ -61,9 +81,32 @@ describe("pi-host", () => {
     expect(out.toolCallCount).toBe(15);
   });
 
-  test("child failure throws PiHostError and does not call newSession after fail", async () => {
-    const fake = makeFakeClient({ fail: true });
+  test("child start failure throws PiHostError", async () => {
+    const fake = makeFakeClient({ startFail: true });
     await expect(runPiInvestigation(fake, "go")).rejects.toBeInstanceOf(PiHostError);
-    expect(fake.continueCalls).toBe(0);
+  });
+
+  test("nested toolcall_start does not double-count with tool_execution_start", async () => {
+    expect(countToolCall({ type: "tool_execution_start" })).toBe(true);
+    expect(countToolCall({ type: "message_update", assistantMessageEvent: { type: "toolcall_start" } })).toBe(false);
+    const fake = makeFakeClient({ toolEvents: 8, nestedToolcallEvents: 15 });
+    const out = await runPiInvestigation(fake, "go");
+    expect(out.aborted).toBe(false);
+    expect(out.toolCallCount).toBe(8);
+  });
+
+  test("resolvePiCliJs prefers PI_CLI", () => {
+    const prev = process.env.PI_CLI;
+    process.env.PI_CLI = "/opt/pi/cli.js";
+    try {
+      expect(resolvePiCliJs()).toBe("/opt/pi/cli.js");
+    } finally {
+      if (prev === undefined) delete process.env.PI_CLI;
+      else process.env.PI_CLI = prev;
+    }
+  });
+
+  test("piRpcTimeoutMs is longer than the wall cap", () => {
+    expect(piRpcTimeoutMs()).toBeGreaterThan(INVESTIGATION_WALL_MS);
   });
 });

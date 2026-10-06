@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import {
   INVESTIGATION_MAX_TOOL_CALLS,
   INVESTIGATION_WALL_MS,
@@ -37,11 +38,17 @@ export function countToolCall(event: {
   type: string;
   assistantMessageEvent?: { type: string };
 }): boolean {
-  return (
-    event.type === "tool_execution_start" ||
-    event.type === "toolcall_start" ||
-    event.assistantMessageEvent?.type === "toolcall_start"
-  );
+  return event.type === "tool_execution_start";
+}
+
+export function piRpcTimeoutMs(): number {
+  return INVESTIGATION_WALL_MS + 60_000;
+}
+
+export function resolvePiCliJs(): string {
+  if (process.env.PI_CLI) return process.env.PI_CLI;
+  const pkg = import.meta.resolve("@earendil-works/pi-coding-agent");
+  return fileURLToPath(new URL("./bundle/cli.js", pkg));
 }
 
 export function piSpawnArgs(opts: { sessionDir: string; systemPromptPath: string }): string[] {
@@ -63,44 +70,50 @@ export async function runPiInvestigation(
   now: () => number = Date.now,
   wait: (ms: number, signal: AbortSignal) => Promise<void> = defaultWait,
 ): Promise<PiRunOk> {
-  await client.start();
-  if (client.newSession) {
-    await client.newSession();
-  }
-
   let toolCallCount = 0;
   let aborted = false;
   const started = now();
   const cap = new AbortController();
+  let unsub: () => void = () => {};
 
-  const unsub = client.onEvent((event) => {
-    if (!countToolCall(event)) return;
-    toolCallCount += 1;
-    if (toolCallCount >= INVESTIGATION_MAX_TOOL_CALLS && !aborted) {
-      aborted = true;
-      cap.abort();
-      void client.abort();
+  try {
+    await client.start();
+    if (client.newSession) {
+      await client.newSession();
     }
-  });
 
-  const wallTimer = wait(INVESTIGATION_WALL_MS, cap.signal)
-    .then(async () => {
-      if (!aborted) {
+    unsub = client.onEvent((event) => {
+      if (!countToolCall(event)) return;
+      toolCallCount += 1;
+      if (toolCallCount >= INVESTIGATION_MAX_TOOL_CALLS && !aborted) {
+        aborted = true;
+        cap.abort();
+        void client.abort();
+      }
+    });
+
+    const wallTimer = wait(INVESTIGATION_WALL_MS, cap.signal)
+      .then(async () => {
+        if (!aborted) {
+          aborted = true;
+          await client.abort();
+        }
+      })
+      .catch(() => undefined);
+
+    try {
+      await client.promptAndWait(prompt);
+      if (now() - started >= INVESTIGATION_WALL_MS && !aborted) {
         aborted = true;
         await client.abort();
       }
-    })
-    .catch(() => undefined);
-
-  try {
-    await client.promptAndWait(prompt);
-    if (now() - started >= INVESTIGATION_WALL_MS && !aborted) {
-      aborted = true;
-      await client.abort();
+    } finally {
+      cap.abort();
+      await wallTimer;
+      unsub();
     }
   } catch (err) {
     cap.abort();
-    await wallTimer;
     unsub();
     let modelId = "unknown";
     try {
@@ -112,10 +125,6 @@ export async function runPiInvestigation(
     const message = err instanceof Error ? err.message : String(err);
     throw new PiHostError(message, modelId);
   }
-
-  cap.abort();
-  await wallTimer;
-  unsub();
   const state = await client.getState();
   const modelId = state.model?.id ?? "unknown";
   const text = (await client.getLastAssistantText?.()) ?? "";
@@ -140,13 +149,14 @@ async function defaultWait(ms: number, signal: AbortSignal): Promise<void> {
 
 export function createPiClient(opts: { sessionDir: string; systemPromptPath: string }): RpcClientLike {
   const inner = new RpcClient({
-    cliPath: process.env.PI_CLI ?? "pi",
+    cliPath: resolvePiCliJs(),
     args: piSpawnArgs(opts),
+    ...(process.env.PI_MODEL ? { model: process.env.PI_MODEL } : {}),
   });
   return {
     start: () => inner.start(),
     promptAndWait: async (message) => {
-      await inner.promptAndWait(message);
+      await inner.promptAndWait(message, undefined, piRpcTimeoutMs());
     },
     abort: () => inner.abort(),
     getState: () => inner.getState(),

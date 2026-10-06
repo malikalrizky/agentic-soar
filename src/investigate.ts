@@ -21,12 +21,14 @@ export async function runInvestigation(
     runPi: (client: RpcClientLike, prompt: string) => Promise<PiRunOk>;
     client: RpcClientLike;
   },
-  write: (result: InvestigationResult) => void,
+  write: (result: InvestigationResult, sessionFile: string | null) => void,
 ): Promise<InvestigationResult> {
   const prompt = formatAlertPrompt(alert);
   let result: InvestigationResult;
+  let sessionFile: string | null = null;
   try {
     const run = await deps.runPi(deps.client, prompt);
+    sessionFile = run.sessionFile;
     if (run.aborted) {
       result = errorResult(run.modelId, "cap: 10m or 15 tool calls");
     } else {
@@ -43,6 +45,6 @@ export async function runInvestigation(
       throw err;
     }
   }
-  write(result);
+  write(result, sessionFile);
   return result;
 }

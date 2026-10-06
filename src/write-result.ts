@@ -15,8 +15,15 @@ export function loadAlert(path: string): TestAlert {
   return raw;
 }
 
-export function writeResultFile(path: string, result: InvestigationResult): void {
+export function writeResultFile(
+  path: string,
+  result: InvestigationResult,
+  sessionFile?: string | null,
+): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(result, null, 2)}\n`);
   appendFileSync(join(dirname(path), "results.jsonl"), `${JSON.stringify(result)}\n`);
+  if (sessionFile) {
+    writeFileSync(`${path}.session`, `${sessionFile}\n`);
+  }
 }

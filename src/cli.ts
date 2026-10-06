@@ -15,8 +15,8 @@ export async function main(argv = process.argv): Promise<string> {
   });
   try {
     const out = resultPath(alertPath, resolve("var/results"));
-    const result = await runInvestigation(alert, { runPi: runPiInvestigation, client }, (r) => {
-      writeResultFile(out, r);
+    const result = await runInvestigation(alert, { runPi: runPiInvestigation, client }, (r, sessionFile) => {
+      writeResultFile(out, r, sessionFile);
     });
     return out;
   } finally {

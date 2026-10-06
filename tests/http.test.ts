@@ -50,6 +50,31 @@ describe("http", () => {
     const { status } = await invoke(handler, "POST", "/investigate", null);
     expect(status).toBe(400);
   });
+
+  test("overlapping POST /investigate starts run once", async () => {
+    const busy = { current: false };
+    let entered = 0;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const handler = createInvestigateHandler({
+      busy,
+      run: async () => {
+        entered += 1;
+        await held;
+        return errorResult("m", "ok");
+      },
+    });
+    const body = { alert: { type: "suspicious_login", timestamp: "2026-01-01T00:00:00Z" } };
+    const p1 = invoke(handler, "POST", "/investigate", body);
+    const p2 = invoke(handler, "POST", "/investigate", body);
+    await Bun.sleep(20);
+    expect(entered).toBe(1);
+    release();
+    const results = await Promise.all([p1, p2]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+  });
 });
 
 describe("write-result", () => {
@@ -75,7 +100,8 @@ describe("write-result", () => {
     const dir = mkdtempSync(join(tmpdir(), "out-"));
     const path = join(dir, "02.result.json");
     const result = errorResult("m", "n");
-    writeResultFile(path, result);
+    writeResultFile(path, result, "/s.jsonl");
     expect(JSON.parse(readFileSync(path, "utf8")).summary).toBe("n");
+    expect(readFileSync(`${path}.session`, "utf8").trim()).toBe("/s.jsonl");
   });
 });
