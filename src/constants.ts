@@ -1,0 +1,2 @@
+export const INVESTIGATION_WALL_MS = 600_000;
+export const INVESTIGATION_MAX_TOOL_CALLS = 15;
