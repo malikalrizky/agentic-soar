@@ -20,3 +20,16 @@ Results land in `var/results/` (plus `.session` sidecar). Score them with `docs/
 HTTP trigger: `bun src/http.ts` then `POST /investigate` with `{ "alert": { ... } }`.
 
 Not in Phase 1: production Coralogix/SIEM, CrowdStrike, Wiz, MCP Gateway, PostgreSQL, n8n, remediation.
+
+## Phase 2 Security Tool Layer (disabled by default)
+
+`.pi/mcp.json` lists a second stdio MCP `security` with `"disabled": true`. Phase 1 scoring keeps using the Test World only.
+
+To enable a live read-only Coralogix search (after ADC or a GCE instance SA can access Secret Manager):
+
+1. Set `"disabled": false` on `mcpServers.security`.
+2. Put Coralogix credentials in GSM as JSON: `{"apiKey":"...","endpoint":"https://api.<region>.coralogix.com"}`.
+3. Export `TOOL_LAYER_GCP_PROJECT` and `TOOL_LAYER_CORALOGIX_SECRET` in the shell that starts the host (the MCP child inherits them; do not put them in Pi/`createPiClient` env).
+4. Keep `PI_CLI` on Pi 1.0.4+ JS entry.
+
+Pi and the security MCP share the OS user; `--no-builtin-tools` is part of keeping vendor keys out of the model process.

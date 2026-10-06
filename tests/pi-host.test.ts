@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -162,5 +162,10 @@ describe("pi-host", () => {
     });
     expect(out.aborted).toBe(true);
     expect(fake.abortCalls).toBe(1);
+  });
+
+  test("createPiClient spawn env stays Gerbang/Pi only", () => {
+    const src = readFileSync("src/pi-host.ts", "utf8");
+    expect(src).not.toMatch(/CORALOGIX|SECRET_MANAGER|TOOL_LAYER/);
   });
 });

@@ -4,6 +4,12 @@
       "command": "bun",
       "args": ["src/mcp-server.ts"],
       "exposure": "direct"
+    },
+    "security": {
+      "command": "bun",
+      "args": ["src/security-mcp.ts"],
+      "exposure": "direct",
+      "disabled": true
     }
   }
 }
