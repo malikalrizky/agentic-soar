@@ -2,24 +2,77 @@
 
 Isolated Test Alert → Pi RPC → local telemetry MCP → Investigation Result.
 
-Requires Bun 1.4.2+, Gerbang running (`gerbang start` / `gerbang login`), and a Pi CLI that loads `.pi/mcp.json` (1.0.4+). The host is Bun. `RpcClient` always starts the child with `node <cli.js>`, so `PI_CLI` must be a JavaScript entry, not a bare `pi` name on PATH.
+## Prerequisites
 
-The frozen model is **DeepSeek V4.1 Flash** via Gerbang (`dk/openrouter/deepseek/deepseek-v4.1-flash`). The host starts `gerbang proxy --application agentic-soar` when adapter env is unset.
+| Tool | Version / notes |
+|---|---|
+| Bun | ≥ 1.4.2 (host, MCP server, tests) |
+| Node.js | ≥ 22.19 required (`package.json` engines). Recommended locally: **26.10.0** (verified). Keep any non-EOL Node that meets the floor. |
+| Gerbang | Logged in (`gerbang start` / `gerbang login`). Must be on PATH so the host can run `gerbang proxy`. |
+| Pi CLI | 1.0.4+ JavaScript entry that loads project `.pi/mcp.json`. `RpcClient` always spawns `node <cli.js>`, so a bare `pi` binary on PATH is not enough. |
+
+This repo pins `@earendil-works/pi-coding-agent` at 0.87.1 for the TypeScript `RpcClient` only. That pin is not a substitute for a 1.0.4+ `PI_CLI`.
+
+Frozen model: DeepSeek V4.1 Flash via Gerbang (`dk/openrouter/deepseek/deepseek-v4.1-flash`). When `GERBANG_ADAPTER_*` / `OPENAI_*` adapter env is unset, the host runs `gerbang proxy --application agentic-soar` and reads `OPENAI_BASE_URL` / `OPENAI_API_KEY` from its stdout.
+
+## Setup
 
 ```bash
 bun install
-bun test
 export PI_CLI=/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
-bun src/cli.ts testdata/alerts/02.json
 ```
 
-Override the model only if you also have that id on Gerbang: `export PI_MODEL=dk/openrouter/...`
+Adjust `PI_CLI` to wherever your global Pi 1.0.4+ `dist/bundle/cli.js` lives. If `PI_CLI` is unset, the host falls back to `node_modules/.../bundle/cli.js` from the 0.87.1 dependency pin — wrong for MCP project config.
 
-Results land in `var/results/` (plus `.session` sidecar). Score them with `docs/phase-1-scoring.md`. Diagrams: [`docs/visuals.md`](docs/visuals.md) (GitLab) and [`docs/visuals/index.html`](docs/visuals/index.html) (browser).
+Confirm Gerbang before the first live run:
 
-HTTP trigger: `bun src/http.ts` then `POST /investigate` with `{ "alert": { ... } }`.
+```bash
+gerbang login   # if needed
+gerbang start
+```
 
-Not in Phase 1: production Coralogix/SIEM, CrowdStrike, Wiz, MCP Gateway, PostgreSQL, n8n, remediation.
+## Run
+
+```bash
+bun test
+bun src/cli.ts testdata/alerts/02.json
+# or: bun run investigate testdata/alerts/02.json
+```
+
+Results land in `var/results/` (plus a `.session` sidecar). Score with [`docs/phase-1-scoring.md`](docs/phase-1-scoring.md).
+
+HTTP trigger (default port 8787, override with `PORT`):
+
+```bash
+bun src/http.ts
+# or: bun run serve
+curl -s -X POST http://127.0.0.1:8787/investigate \
+  -H 'content-type: application/json' \
+  -d '{"alert":{...}}'
+```
+
+### Optional env
+
+| Variable | Purpose |
+|---|---|
+| `PI_CLI` | Path to Pi 1.0.4+ `cli.js` |
+| `PI_MODEL` | Override frozen model id (must exist on Gerbang) |
+| `GERBANG_ADAPTER_BASE_URL` / `GERBANG_ADAPTER_API_KEY` | Skip `gerbang proxy` when already set |
+| `OPENAI_BASE_URL` / `OPENAI_API_KEY` | Same as adapter env (accepted aliases) |
+| `PORT` | HTTP listen port (default 8787) |
+| `WORLD_PATH` | Test World JSON for the telemetry MCP (default `testdata/world.json`) |
+
+## Docs
+
+- Phase 1 result: [`docs/phase-1-result.md`](docs/phase-1-result.md)
+- Scoring: [`docs/phase-1-scoring.md`](docs/phase-1-scoring.md)
+- Glossary: [`GLOSSARY.md`](GLOSSARY.md)
+- Diagrams: [`docs/visuals.md`](docs/visuals.md) (GitLab) and [`docs/visuals/index.html`](docs/visuals/index.html) (browser)
+- Next design: [`docs/phase-2-security-tool-layer.md`](docs/phase-2-security-tool-layer.md)
+
+## Out of scope (Phase 1)
+
+Production Coralogix/SIEM, CrowdStrike, Wiz, MCP Gateway, PostgreSQL, n8n, remediation.
 
 ## Phase 2 Security Tool Layer (disabled by default)
 
