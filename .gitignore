@@ -7,3 +7,5 @@ var/pi-sessions/
 !.cursor/rules/
 !.cursor/rules/**
 
+
+.worktrees/
