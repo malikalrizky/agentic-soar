@@ -86,3 +86,5 @@ To enable a live read-only Coralogix search (after ADC or a GCE instance SA can 
 4. Keep `PI_CLI` on Pi 1.0.4+ JS entry.
 
 Pi and the security MCP share the OS user; `--no-builtin-tools` is part of keeping vendor keys out of the model process.
+
+First live smoke (ADC/GSM, local enable only, pass/fail): [`docs/phase-2-coralogix-smoke.md`](docs/phase-2-coralogix-smoke.md).
