@@ -71,3 +71,110 @@ test("zero hits on 200 is ok not an error", async () => {
   });
   expect(out).toEqual({ ok: true, hitCount: 0, hits: [], truncated: false });
 });
+
+test("getSecret is reused until TTL then refetched", async () => {
+  let gets = 0;
+  let t = 0;
+  const deps = {
+    getSecret: async () => {
+      gets += 1;
+      return SECRET;
+    },
+    fetch: (async () =>
+      new Response(JSON.stringify({ result: { results: [] } }), { status: 200 })) as typeof fetch,
+    now: () => t,
+  };
+  await handleCoralogixSearch(ARGS, deps);
+  await handleCoralogixSearch(ARGS, deps);
+  expect(gets).toBe(1);
+  t = 300_001;
+  await handleCoralogixSearch(ARGS, deps);
+  expect(gets).toBe(2);
+});
+
+test("401 invalidates cache and refetches secret once", async () => {
+  let gets = 0;
+  let n = 0;
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => {
+      gets += 1;
+      return SECRET;
+    },
+    fetch: (async () => {
+      n += 1;
+      return n === 1
+        ? new Response("no", { status: 401 })
+        : new Response(JSON.stringify({ result: { results: [] } }), { status: 200 });
+    }) as typeof fetch,
+  });
+  expect(out.ok).toBe(true);
+  expect(gets).toBe(2);
+  expect(n).toBe(2);
+});
+
+test("500 retries once then vendor_error", async () => {
+  let n = 0;
+  let slept = 0;
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => SECRET,
+    fetch: (async () => {
+      n += 1;
+      return new Response("x", { status: 500 });
+    }) as typeof fetch,
+    sleep: async (ms) => {
+      slept = ms;
+    },
+  });
+  expect(out.ok).toBe(false);
+  if (!out.ok) expect(out.error.code).toBe("vendor_error");
+  expect(n).toBe(2);
+  expect(slept).toBe(250);
+});
+
+test("401 is not 5xx retry; second 401 is vendor_auth", async () => {
+  let n = 0;
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => SECRET,
+    fetch: (async () => {
+      n += 1;
+      return new Response("no", { status: 401 });
+    }) as typeof fetch,
+    sleep: async () => {
+      throw new Error("no 5xx sleep on 401");
+    },
+  });
+  expect(out.ok).toBe(false);
+  if (!out.ok) expect(out.error.code).toBe("vendor_auth");
+  expect(n).toBe(2);
+});
+
+test("fetch throw is vendor_timeout", async () => {
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => SECRET,
+    fetch: (async () => {
+      throw new Error("network down");
+    }) as typeof fetch,
+  });
+  expect(out.ok).toBe(false);
+  if (!out.ok) expect(out.error.code).toBe("vendor_timeout");
+});
+
+test("getSecret throw is secret_unavailable", async () => {
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => {
+      throw new Error("gsm down");
+    },
+    fetch: (async () => new Response("{}")) as typeof fetch,
+  });
+  expect(out.ok).toBe(false);
+  if (!out.ok) expect(out.error.code).toBe("secret_unavailable");
+});
+
+test("non-JSON secret payload is secret_unavailable", async () => {
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => "not-json",
+    fetch: (async () => new Response("{}")) as typeof fetch,
+  });
+  expect(out.ok).toBe(false);
+  if (!out.ok) expect(out.error.code).toBe("secret_unavailable");
+});

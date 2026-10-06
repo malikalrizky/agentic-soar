@@ -5,9 +5,31 @@ const MAX_WINDOW_MS = 86_400_000;
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 20;
 const MAX_RESULT_BYTES = 32_768;
+const SECRET_TTL_MS = 300_000;
 const HTTP_TIMEOUT_MS = 15_000;
 const RETRY_BACKOFF_MS = 250;
 const RETRY_AFTER_CAP_MS = 5_000;
+
+type SecretCacheEntry = { value: string; fetchedAt: number };
+const secretCaches = new WeakMap<() => Promise<string>, SecretCacheEntry>();
+
+function invalidateSecretCache(getSecret: () => Promise<string>): void {
+  secretCaches.delete(getSecret);
+}
+
+async function getCachedSecret(
+  getSecret: () => Promise<string>,
+  now: () => number,
+): Promise<string> {
+  const t = now();
+  const hit = secretCaches.get(getSecret);
+  if (hit !== undefined && t - hit.fetchedAt < SECRET_TTL_MS) {
+    return hit.value;
+  }
+  const value = await getSecret();
+  secretCaches.set(getSecret, { value, fetchedAt: t });
+  return value;
+}
 
 export type LayerErrorCode =
   | "invalid_request"
@@ -226,34 +248,66 @@ export async function handleCoralogixSearch(
     return finish(fail("invalid_request", "invalid_request", []));
   }
 
-  let secretPayload: string;
-  try {
-    secretPayload = await deps.getSecret();
-  } catch {
-    return finish(fail("secret_unavailable", "secret_unavailable", []));
+  const now = deps.now ?? Date.now;
+
+  async function loadCreds(): Promise<CoralogixCredentials | LayerResult> {
+    let secretPayload: string;
+    try {
+      secretPayload = await getCachedSecret(deps.getSecret, now);
+    } catch {
+      return fail("secret_unavailable", "secret_unavailable", []);
+    }
+    try {
+      return parseCoralogixSecret(secretPayload);
+    } catch {
+      invalidateSecretCache(deps.getSecret);
+      return fail("secret_unavailable", "secret_unavailable", []);
+    }
   }
 
-  let creds: CoralogixCredentials;
-  try {
-    creds = parseCoralogixSecret(secretPayload);
-  } catch {
-    return finish(fail("secret_unavailable", "secret_unavailable", []));
+  let credsOrErr = await loadCreds();
+  if ("ok" in credsOrErr) {
+    return finish(credsOrErr);
   }
+  let creds = credsOrErr;
   apiKey = creds.apiKey;
 
-  let vendor: { status: number; bodyText: string };
-  try {
-    vendor = await coralogixDataprimeSearch(creds, args, deps);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg === "vendor_timeout") {
-      return finish(fail("vendor_timeout", "vendor_timeout", [apiKey]));
+  async function callVendor(
+    c: CoralogixCredentials,
+  ): Promise<{ status: number; bodyText: string } | LayerResult> {
+    try {
+      return await coralogixDataprimeSearch(c, args!, deps);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === "vendor_timeout") {
+        return fail("vendor_timeout", "vendor_timeout", [c.apiKey]);
+      }
+      return fail("vendor_error", msg, [c.apiKey]);
     }
-    return finish(fail("vendor_error", msg, [apiKey]));
   }
 
+  let vendorOrErr = await callVendor(creds);
+  if ("ok" in vendorOrErr) {
+    return finish(vendorOrErr);
+  }
+  let vendor = vendorOrErr;
+
   if (vendor.status === 401 || vendor.status === 403) {
-    return finish(fail("vendor_auth", "vendor_auth", [apiKey]), vendor.status);
+    invalidateSecretCache(deps.getSecret);
+    credsOrErr = await loadCreds();
+    if ("ok" in credsOrErr) {
+      return finish(credsOrErr, vendor.status);
+    }
+    creds = credsOrErr;
+    apiKey = creds.apiKey;
+    vendorOrErr = await callVendor(creds);
+    if ("ok" in vendorOrErr) {
+      return finish(vendorOrErr, vendor.status);
+    }
+    vendor = vendorOrErr;
+    if (vendor.status === 401 || vendor.status === 403) {
+      return finish(fail("vendor_auth", "vendor_auth", [apiKey]), vendor.status);
+    }
   }
 
   if (vendor.status === 429 || vendor.status >= 500) {
@@ -271,7 +325,7 @@ export async function handleCoralogixSearch(
     return finish(fail("vendor_error", "vendor_error", [apiKey]), vendor.status);
   }
 
-  let hits = extractHits(parsed).slice(0, args.limit);
+  const hits = extractHits(parsed).slice(0, args.limit);
   const bounded = boundHits(hits, MAX_LIMIT, MAX_RESULT_BYTES);
   const redactedText = redactSecrets(JSON.stringify(bounded.hits), [apiKey]);
   let redactedHits: unknown[];
