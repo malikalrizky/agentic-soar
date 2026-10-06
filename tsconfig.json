@@ -11,7 +11,8 @@
     "verbatimModuleSyntax": true,
     "noUncheckedIndexedAccess": true,
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": ["bun", "node"]
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
 }
