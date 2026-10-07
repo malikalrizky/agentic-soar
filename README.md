@@ -1,6 +1,10 @@
-# Agentic SOAR (Phase 1 POC)
+# Agentic SOAR
 
 Isolated Test Alert → Pi RPC → local telemetry MCP → Investigation Result.
+
+Goal: a SOAR platform built as a thin host around Pi.
+Phase 1 is triage and Investigation: alert in, tools, disposition out.
+Next Phase: case management, playbooks/skills, and remediation/skills.
 
 ## Prerequisites
 
