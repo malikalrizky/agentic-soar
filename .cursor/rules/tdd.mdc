@@ -1,0 +1,40 @@
+---
+description: Strict RED-GREEN-REFACTOR for src/ and tests/ changes
+globs: src/**/*.ts,tests/**/*.ts,extensions/**/*.mjs
+alwaysApply: false
+---
+
+# TDD: red, green, refactor
+
+Test-first is mandatory for behavior changes in `src/`. A behavior change without a test written first is not done.
+
+## The cycle
+
+1. **RED** — write the smallest failing test that expresses the new behavior or reproduces the bug. Run `bun test tests/<file>.test.ts` and **watch it fail for the right reason** (assertion or expected error, not a typo/import error). Do not write implementation yet.
+2. **GREEN** — write the minimal `src/` change that makes the test pass. No extra features, no "while I'm here" refactors.
+3. **REFACTOR** — clean up with tests green. Re-run after each refactor step.
+
+One behavior = one red-green cycle. Batching several behaviors into one cycle is a rule violation, not a shortcut.
+
+## What counts as RED
+
+- New behavior: test asserts the new output/contract → fails against current `src/`.
+- Bug fix: test reproduces the real-world failure (ideally captured from a live run, e.g. an NDJSON body, a 400 compile error) → fails against current `src/`.
+- Regression: test pins a fixed bug so it cannot silently return.
+
+## What does NOT require a red phase
+
+- Pure renames/moves with no behavior change (run the full suite before and after instead).
+- Docs, comments, formatting.
+- Config plumbing already covered by existing tests (extend the existing test, still run it failing first if the expectation changed).
+
+## House rules
+
+- Tests live in `tests/`, one file per module (`security.test.ts` ↔ `src/security.ts`). No new test framework.
+- Mock the vendor seam (`fetch`, `getSecret`) — never call Coralogix/GSM in unit tests. Live behavior is proven by smoke runs (see `docs/phase-2-coralogix-smoke.md`), which are recorded in the smoke doc, not in unit tests.
+- A failing test may not be "fixed" by loosening the assertion. Fix the code or justify why the expectation was wrong — in the commit message.
+- Commit messages must state which test drove the change when the commit touches `src/` behavior (Jira key still required, e.g. `DEVSECOPS-xxxx: ...`).
+
+## Smoke exception
+
+Real vendor behavior (response shapes, error text) is discovered live and encoded into tests afterwards — that discovery loop is the smoke run, not a TDD violation. The NDJSON and `invalid_query` tests came from live findings this way.
