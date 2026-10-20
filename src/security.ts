@@ -34,6 +34,7 @@ async function getCachedSecret(
 
 export type LayerErrorCode =
   | "invalid_request"
+  | "invalid_query"
   | "secret_unavailable"
   | "vendor_auth"
   | "vendor_timeout"
@@ -357,6 +358,13 @@ export async function handleCoralogixSearch(
 
   if (vendor.status === 429 || vendor.status >= 500) {
     return finish(fail("vendor_error", "vendor_error", [apiKey]), vendor.status);
+  }
+
+  if (vendor.status === 400) {
+    // DataPrime compile errors arrive as plain text (e.g. "Compilation errors: ...").
+    // Pass a bounded snippet back so the caller can self-correct the query syntax.
+    const snippet = vendor.bodyText.trim().slice(0, 300) || "query rejected by vendor";
+    return finish(fail("invalid_query", snippet, [apiKey]), vendor.status);
   }
 
   if (vendor.status < 200 || vendor.status >= 300) {

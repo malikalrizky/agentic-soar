@@ -48,6 +48,39 @@ test("HTTP 500 is vendor_error not empty hits", async () => {
   if (!out.ok) expect(out.error.code).toBe("vendor_error");
 });
 
+test("HTTP 400 compile error is invalid_query with the vendor snippet, key redacted", async () => {
+  const lines: string[] = [];
+  const body = "Compilation errors:\n - expected one of keywords: [source,filter,...] at [0:0-0:11]";
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => SECRET,
+    fetch: asFetch(async () => new Response(body, { status: 400 })),
+    audit: (s) => lines.push(s),
+  });
+  expect(out.ok).toBe(false);
+  if (!out.ok) {
+    expect(out.error.code).toBe("invalid_query");
+    expect(out.error.message).toContain("Compilation errors");
+    expect(out.error.message).not.toContain("cx-secret-key-value");
+  }
+  expect(lines).toHaveLength(1);
+  const line = lines[0]!;
+  expect(JSON.parse(line).errorCode).toBe("invalid_query");
+  expect(line).not.toContain("cx-secret-key-value");
+});
+
+test("HTTP 400 with empty body still yields invalid_query", async () => {
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => SECRET,
+    fetch: asFetch(async () => new Response("", { status: 400 })),
+    audit: () => {},
+  });
+  expect(out.ok).toBe(false);
+  if (!out.ok) {
+    expect(out.error.code).toBe("invalid_query");
+    expect(out.error.message).toBe("query rejected by vendor");
+  }
+});
+
 test("NDJSON body (queryId/result/statistics lines) extracts hits", async () => {
   const ndjson = [
     JSON.stringify({ queryId: { queryId: "q1" } }),
