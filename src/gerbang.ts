@@ -1,4 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { FROZEN_PI_MODEL, GERBANG_PROXY_APPLICATION } from "./constants.ts";
 
 export type GerbangAdapterEnv = {
@@ -54,6 +57,35 @@ export function vertexPiArgs(opts: {
   ];
 }
 
+const GCP_VERTEX_CREDENTIALS_MARKER = "gcp-vertex-credentials";
+
+/**
+ * Pi's auth layer requires a stored entry for `google-vertex` before it will
+ * start. Writing the `gcp-vertex-credentials` sentinel tells Pi to use
+ * Application Default Credentials (attached SA / metadata server) instead of
+ * an API key; the provider resolves project/location from env.
+ */
+export function ensureVertexAuthEntry(homeDir = homedir()): void {
+  const authPath = join(homeDir, ".pi", "agent", "auth.json");
+  let auth: Record<string, unknown> = {};
+  try {
+    auth = JSON.parse(readFileSync(authPath, "utf8")) as typeof auth;
+  } catch {
+    auth = {};
+  }
+  const entry = auth["google-vertex"];
+  if (
+    entry &&
+    typeof entry === "object" &&
+    (entry as { key?: unknown }).key === GCP_VERTEX_CREDENTIALS_MARKER
+  ) {
+    return;
+  }
+  mkdirSync(dirname(authPath), { recursive: true });
+  auth["google-vertex"] = { type: "api_key", key: GCP_VERTEX_CREDENTIALS_MARKER };
+  writeFileSync(authPath, JSON.stringify(auth, null, 2));
+}
+
 export function vertexPiChild(opts: {
   cliPath: string;
   sessionDir: string;
@@ -66,6 +98,7 @@ export function vertexPiChild(opts: {
   if (!project) {
     throw new Error("PI_PROVIDER=google-vertex requires GOOGLE_CLOUD_PROJECT");
   }
+  ensureVertexAuthEntry();
   return {
     cliPath: opts.cliPath,
     args: vertexPiArgs(opts),
