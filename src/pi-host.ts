@@ -7,7 +7,8 @@ import {
   INVESTIGATION_WALL_MS,
 } from "./constants.ts";
 import { RpcClient } from "@earendil-works/pi-coding-agent";
-import { gerbangPiArgs, gerbangPiChild } from "./gerbang.ts";
+import { gerbangPiArgs, gerbangPiChild, resolvePiProviderMode, vertexPiChild } from "./gerbang.ts";
+import { VERTEX_PI_MODEL } from "./constants.ts";
 
 export type PiRunOk = {
   text: string;
@@ -210,16 +211,24 @@ async function defaultWait(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 function createPiClient(opts: { sessionDir: string; systemPromptPath: string }): RpcClientLike {
-  const child = gerbangPiChild({
-    cliPath: resolvePiCliJs(),
-    extensionPath: gerbangDkExtensionPath(),
-    sessionDir: opts.sessionDir,
-    systemPromptPath: opts.systemPromptPath,
-  });
-  const model = process.env.PI_MODEL?.trim() || FROZEN_PI_MODEL;
+  const mode = resolvePiProviderMode();
+  const child =
+    mode === "google-vertex"
+      ? vertexPiChild({
+          cliPath: resolvePiCliJs(),
+          sessionDir: opts.sessionDir,
+          systemPromptPath: opts.systemPromptPath,
+        })
+      : gerbangPiChild({
+          cliPath: resolvePiCliJs(),
+          extensionPath: gerbangDkExtensionPath(),
+          sessionDir: opts.sessionDir,
+          systemPromptPath: opts.systemPromptPath,
+        });
+  const model = process.env.PI_MODEL?.trim() || (mode === "google-vertex" ? VERTEX_PI_MODEL : FROZEN_PI_MODEL);
   const inner = new RpcClient({
     cliPath: child.cliPath,
-    provider: "dk",
+    provider: mode === "google-vertex" ? "google-vertex" : "dk",
     model,
     args: child.args,
     env: child.env,

@@ -30,6 +30,54 @@ export type GerbangPiChild = {
   env: Record<string, string>;
 };
 
+export type PiProviderMode = "gerbang-dk" | "google-vertex";
+
+export function resolvePiProviderMode(env: NodeJS.ProcessEnv = process.env): PiProviderMode {
+  const mode = env.PI_PROVIDER?.trim();
+  if (mode === "google-vertex") return "google-vertex";
+  return "gerbang-dk";
+}
+
+export function vertexPiArgs(opts: {
+  sessionDir: string;
+  systemPromptPath: string;
+}): string[] {
+  return [
+    "--mode",
+    "rpc",
+    "--no-builtin-tools",
+    "-a",
+    "--session-dir",
+    opts.sessionDir,
+    "--system-prompt",
+    opts.systemPromptPath,
+  ];
+}
+
+export function vertexPiChild(opts: {
+  cliPath: string;
+  sessionDir: string;
+  systemPromptPath: string;
+  processEnv?: NodeJS.ProcessEnv;
+}): GerbangPiChild {
+  const processEnv = opts.processEnv ?? process.env;
+  const project = processEnv.GOOGLE_CLOUD_PROJECT?.trim();
+  const location = processEnv.GOOGLE_CLOUD_LOCATION?.trim() || "asia-southeast1";
+  if (!project) {
+    throw new Error("PI_PROVIDER=google-vertex requires GOOGLE_CLOUD_PROJECT");
+  }
+  return {
+    cliPath: opts.cliPath,
+    args: vertexPiArgs(opts),
+    env: {
+      GOOGLE_CLOUD_PROJECT: project,
+      GOOGLE_CLOUD_LOCATION: location,
+      PI_OFFLINE: "1",
+      PI_TELEMETRY: "0",
+    },
+  };
+}
+
 export function gerbangPiArgs(opts: {
   extensionPath: string;
   sessionDir: string;
