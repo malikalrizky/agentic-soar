@@ -106,6 +106,15 @@ If Step C passed, note in a few lines (ticket or personal notes):
 - Environment used: project `prj-dev-securityf79f29`, secret `tool-layer-coralogix-secret` (asia-southeast2), endpoint `https://api.ap3.coralogix.com` (verified live, HTTP 200).
 - Found & fixed during the run: (1) DataPrime HTTP returns NDJSON, not single JSON — parser split added in `src/security.ts` + 2 regression tests; (2) unset `PI_CLI` falls back to the 0.87.1 pin which silently ignores `.pi/mcp.json` — set `PI_CLI` to the 1.0.4+ bundle (see Preflight); (3) project must be trusted in `~/.pi/agent/trust.json` or `.pi/mcp.json` is ignored.
 
+### 2026-10-20 GCE VM run (DEVSECOPS-3089, passed with one model-quality finding)
+
+Host: `dev-test-opsagent-001` (Ubuntu 20.04, asia-southeast2-a), SA `dev-test-opsagent-sa@prj-dev-securityf79f29.iam.gserviceaccount.com`, access via `gcloud compute ssh --tunnel-through-iap`. SA has `roles/secretmanager.secretAccessor` on `tool-layer-coralogix-secret` (scoped to that secret) and `roles/aiplatform.user` on the project.
+
+- Step B on VM: `ok:true`, HTTP 200 via SA identity (no ADC, no key file). Fail-closed: `secret_unavailable` ✓.
+- Step C on VM: `PI_PROVIDER=google-vertex` runs Pi's builtin Vertex provider against `gemini-2.5-flash` (region `asia-southeast1`; the project is region-restricted — us-central1 models 404). Investigation ran end-to-end and called every MCP tool, including `mcp__security__coralogix_search` twice.
+- Model-quality finding (not a plumbing failure): gemini sent `query:"smoke_test"` — a raw keyword, not valid DataPrime — which Coralogix correctly rejected (HTTP 400 → `vendor_error`). The laptop run (DeepSeek) wrote valid DataPrime. The Tool Layer behaved correctly: secret fetch via SA worked, vendor call executed, error mapped to a structured code, Investigation degraded to `insufficient_evidence` instead of inventing results. Candidate follow-up: teach the model to write DataPrime (prompt example) or accept raw terms.
+- Ops notes: Pi and the MCP servers share the OS user (both spawned from the same Pi child); env needed on the VM: `TOOL_LAYER_GCP_PROJECT`, `TOOL_LAYER_CORALOGIX_SECRET`, `PI_PROVIDER=google-vertex`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION=asia-southeast1`, `PI_CLI` → 1.0.4+ bundle (Node ≥22 required for `enableCompileCache`; Node 20 fails at import). `pi` symlinked to `/usr/local/bin/pi`, Bun at `~/.bun/bin`. Vertex quota for Anthropic models (`claude-haiku-5-5`) is zero on this project — requests need a quota increase before use; gemini-2.5-flash works today.
+
 Full agent evaluation stays deferred. Do not re-score the nine Phase 1 alerts unless someone asks.
 
 ## Appendix — GSM bootstrap
