@@ -15,10 +15,11 @@ Committed `.pi/mcp.json` keeps `"disabled": true` on `security`. Enable only in 
 
 ## Preflight
 
-1. `PI_CLI` points at Pi 1.0.4+ `dist/bundle/cli.js` (not the 0.87.1 pin).
+1. `PI_CLI` points at Pi 1.0.4+ `dist/bundle/cli.js` (not the 0.87.1 pin). If `PI_CLI` is unset, the repo's pinned `node_modules` copy (0.87.1) is used — that version does not load `.pi/mcp.json`, so MCP tools silently never appear in the session.
 2. Gerbang up (`gerbang start` / login as usual).
 3. ADC can call Secret Manager (`gcloud auth application-default login` on a laptop; GCE SA on a VM).
 4. GSM secret exists as JSON: `{"apiKey":"…","endpoint":"https://api.<region>.coralogix.com"}`.
+4b. Pi trusts this project (`~/.pi/agent/trust.json` maps the repo path to `true`). Without it Pi ignores `.pi/mcp.json` entirely — `pi mcp list` prints "ignored because the project is not trusted". Verify with `pi mcp list` from the repo root: both `telemetry` and `security` should show `connected`.
 5. In the shell that will run Bun:
 
 ```bash
@@ -28,9 +29,9 @@ export TOOL_LAYER_CORALOGIX_SECRET=…  # secret id (name), not the key value
 
 Do not put Coralogix keys in Pi env, `createPiClient` env, or `.pi/mcp.json` `env`.
 
-## Step B — direct call (no Pi)
+## Step B — direct call
 
-Throwaway one-shot from the repo root. Adjust the DataPrime `query` if your tenant rejects it; empty hits on HTTP 200 still pass.
+Throwaway one-shot from the repo root. Adjust the DataPrime `query` if your tenant rejects it; empty hits on HTTP 200 still pass. The DataPrime query is a plain string (`.source`-style leading dot is invalid — use `source logs | limit 10`).
 
 ```bash
 bun <<'EOF'
@@ -66,7 +67,9 @@ console.log(JSON.stringify(out, null, 2));
 EOF
 ```
 
-Expect stdout `ok: true` and one stderr JSON audit line (`tool`, `argHash`, `durationMs`, `status`). Reject if the key or full query appears there.
+Expect stdout `ok: true` and one stderr JSON audit line (`tool`, `argHash`, `durationMs`, `status`, plus `httpStatus`/`errorCode` on failure). Reject if the key or full query appears there.
+
+Note: the Coralogix DataPrime HTTP API responds with **NDJSON** (`application/x-ndjson`) — separate JSON lines for `queryId`, `result` (with `result.results`), and `statistics`. The parser in `src/security.ts` splits lines and extracts hits from the `result.results` line; single-JSON responses still work. Regression tests: `tests/security.test.ts` ("NDJSON body…" / "empty NDJSON body…").
 
 ## Fail-closed (once)
 
@@ -96,6 +99,12 @@ If Step C passed, note in a few lines (ticket or personal notes):
 - Did Flash invent tool names or fan out toward the 15-call cap?
 - Was the DataPrime query usable as Evidence, or too coarse?
 - Any key-shaped strings in session/result/audit?
+
+### 2026-10-20 live run (passed)
+
+- Step B: `ok:true`, HTTP 200, audit stderr clean (no key, no query text). Fail-closed: `secret_unavailable` ✓. Step C: Flash called `mcp__telemetry__query_related_alerts` then `mcp__security__coralogix_search` with a real DataPrime query; Evidence cited `dataset: coralogix`; no key-shaped strings. No tool-name invention, no runaway fan-out (2 calls total). DataPrime query was usable as Evidence (search + zero-hit statement), not too coarse.
+- Environment used: project `prj-dev-securityf79f29`, secret `tool-layer-coralogix-secret` (asia-southeast2), endpoint `https://api.ap3.coralogix.com` (verified live, HTTP 200).
+- Found & fixed during the run: (1) DataPrime HTTP returns NDJSON, not single JSON — parser split added in `src/security.ts` + 2 regression tests; (2) unset `PI_CLI` falls back to the 0.87.1 pin which silently ignores `.pi/mcp.json` — set `PI_CLI` to the 1.0.4+ bundle (see Preflight); (3) project must be trusted in `~/.pi/agent/trust.json` or `.pi/mcp.json` is ignored.
 
 Full agent evaluation stays deferred. Do not re-score the nine Phase 1 alerts unless someone asks.
 

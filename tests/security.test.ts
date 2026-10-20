@@ -48,6 +48,34 @@ test("HTTP 500 is vendor_error not empty hits", async () => {
   if (!out.ok) expect(out.error.code).toBe("vendor_error");
 });
 
+test("NDJSON body (queryId/result/statistics lines) extracts hits", async () => {
+  const ndjson = [
+    JSON.stringify({ queryId: { queryId: "q1" } }),
+    JSON.stringify({ result: { results: [{ msg: "hello" }] } }),
+    JSON.stringify({ statistics: { status: "COMPLETED" } }),
+  ].join("\n");
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => SECRET,
+    fetch: asFetch(async () => new Response(ndjson, { status: 200 })),
+    audit: () => {},
+  });
+  expect(out).toEqual({ ok: true, hitCount: 1, hits: [{ msg: "hello" }], truncated: false });
+});
+
+test("empty NDJSON body (queryId + statistics only) is ok with zero hits", async () => {
+  const ndjson = [
+    JSON.stringify({ queryId: { queryId: "q1" } }),
+    JSON.stringify({ statistics: { status: "COMPLETED" } }),
+  ].join("\n");
+  const out = await handleCoralogixSearch(ARGS, {
+    getSecret: async () => SECRET,
+    fetch: asFetch(async () => new Response(ndjson, { status: 200 })),
+    audit: () => {},
+  });
+  expect(out).toEqual({ ok: true, hitCount: 0, hits: [], truncated: false });
+});
+
+
 test("ok hits redact the api key and audit has no query", async () => {
   const lines: string[] = [];
   const out = await handleCoralogixSearch(ARGS, {

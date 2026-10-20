@@ -143,7 +143,7 @@ In this repo, design-only until implementation is requested:
 3. GSM client + in-memory TTL cache + 401 bust.
 4. Coralogix **read** HTTP with timeouts; one 429/5xx retry.
 5. Validate args; bound and redact results; structured errors.
-6. Local structured audit log (stdout or `var/` file).
+6. Local structured audit log (stderr; fields `tool`, `argHash`, `durationMs`, `status`, plus `httpStatus`/`errorCode` on failure).
 7. `.pi/mcp.json`: second server, `exposure: direct`. Keep `telemetry`.
 8. Host unchanged except config if the child cwd/env must not leak keys.
 9. `--no-builtin-tools` remains mandatory.

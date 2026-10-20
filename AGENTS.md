@@ -1,6 +1,7 @@
 # Agentic SOAR
 
 ## Learned User Preferences
+- Workflow: superpowers skill-pack in Cursor — brainstorm → Q&A → plan → execute. Start non-trivial work with a plan (plans under `.cursor/plans/`), don't jump straight to code.
 - Prefer visuals in git: Mermaid in `docs/visuals.md` (source of truth for MRs) and `docs/visuals/index.html` for a local/browser view. Cursor Canvas is optional and is not pushed.
 
 ## Notes
@@ -13,6 +14,11 @@
 ### Issue tracker
 
 Jira via acli (site/project in local override, not committed). See `docs/agents/issue-tracker.md`.
+
+### Remotes & Jira sync
+
+- Primary remote is `origin` = GitLab `dk-digital-bank/security/apps/agentic-soar` (synced to Jira via GitLab for Jira); `github` is the personal mirror — push there occasionally, it may lag.
+- **Every commit/branch/MR message that touches ticketed work must contain the Jira key** (e.g. `DEVSECOPS-3087: ...`) — that is what makes it appear in the Jira development panel. No key = invisible to Jira.
 
 ### Triage labels
 

@@ -150,6 +150,17 @@ function parseCoralogixSecret(payload: string): CoralogixCredentials {
 }
 
 function extractHits(parsed: unknown): unknown[] | "vendor_error" {
+  if (Array.isArray(parsed)) {
+    // NDJSON: array of per-line objects; hits live in the `result.results` line
+    for (const entry of parsed) {
+      if (typeof entry === "object" && entry !== null) {
+        const obj = entry as { result?: { results?: unknown }; error?: unknown };
+        if (Array.isArray(obj.result?.results)) return obj.result.results as unknown[];
+        if (obj.error !== undefined) return "vendor_error";
+      }
+    }
+    return [];
+  }
   if (typeof parsed === "object" && parsed !== null) {
     const obj = parsed as {
       result?: { results?: unknown };
@@ -354,7 +365,12 @@ export async function handleCoralogixSearch(
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(vendor.bodyText);
+    parsed = vendor.bodyText.includes("\n")
+      ? vendor.bodyText.split("\n").flatMap((line) => {
+          const trimmed = line.trim();
+          return trimmed ? [JSON.parse(trimmed)] : [];
+        })
+      : JSON.parse(vendor.bodyText);
   } catch {
     return finish(fail("vendor_error", "vendor_error", [apiKey]), vendor.status);
   }
